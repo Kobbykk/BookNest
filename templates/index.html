@@ -25,6 +25,38 @@
         </div>
     </div>
 
+    {% if current_user.is_authenticated and recommendations %}
+    <!-- Recommendations Section -->
+    <div class="mb-4">
+        <h3>Recommended for You</h3>
+        <div class="row">
+            {% for book in recommendations %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <img src="{{ book.image_url }}" class="card-img-top" alt="{{ book.title }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ book.title }}</h5>
+                        <p class="card-text">By {{ book.author }}</p>
+                        <p class="card-text">${{ "%.2f"|format(book.price) }}</p>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                Rating: {{ "%.1f"|format(book.average_rating) }}/5.0 
+                                ({{ book.reviews|length }} reviews)
+                            </small>
+                        </p>
+                        <p class="card-text"><small class="text-muted">Category: {{ book.category }}</small></p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-secondary">Details</a>
+                            <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Books Grid -->
     <div class="row">
         {% if books %}

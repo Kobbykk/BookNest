@@ -22,6 +22,35 @@
         </div>
     </div>
 
+    {% if similar_books %}
+    <!-- Similar Books Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3>Similar Books</h3>
+            <div class="row">
+                {% for similar_book in similar_books %}
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <img src="{{ similar_book.image_url }}" class="card-img-top" alt="{{ similar_book.title }}">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ similar_book.title }}</h5>
+                            <p class="card-text">By {{ similar_book.author }}</p>
+                            <p class="card-text">${{ "%.2f"|format(similar_book.price) }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{{ url_for('main.book_detail', book_id=similar_book.id) }}" class="btn btn-secondary">Details</a>
+                                {% if current_user.is_authenticated %}
+                                <button class="btn btn-primary add-to-cart" data-book-id="{{ similar_book.id }}">Add to Cart</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Reviews Section -->
     <div class="row">
         <div class="col-md-8">
