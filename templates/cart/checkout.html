@@ -1,6 +1,62 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    // Initialize Stripe right away
+    const stripe = Stripe('{{ stripe_publishable_key }}');
+    const elements = stripe.elements({
+        appearance: {
+            theme: 'night',
+            variables: {
+                colorPrimary: '#0d6efd',
+                colorBackground: '#212529',
+                colorText: '#ffffff',
+                colorDanger: '#dc3545',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+                spacingUnit: '2px',
+                borderRadius: '4px'
+            }
+        }
+    });
+
+    // Create and mount card element immediately
+    const cardElement = elements.create('card');
+    document.addEventListener('DOMContentLoaded', function() {
+        cardElement.mount('#card-element');
+        
+        // Add visible styles to card element
+        const cardElementStyles = `
+            #card-element {
+                padding: 12px;
+                border: 1px solid #495057;
+                border-radius: 4px;
+                background-color: #2b3035;
+                color: white;
+                min-height: 40px;
+            }
+            #card-element.StripeElement--focus {
+                border-color: #0d6efd;
+                box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            }
+            #card-element.StripeElement--invalid {
+                border-color: #dc3545;
+            }
+            #card-errors {
+                color: #dc3545;
+                background-color: rgba(220, 53, 69, 0.1);
+                padding: 10px;
+                border-radius: 4px;
+                margin-top: 10px;
+                display: none;
+            }
+        `;
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = cardElementStyles;
+        document.head.appendChild(styleSheet);
+    });
+</script>
+
 <div class="container">
     <h2 class="mb-4">Checkout</h2>
     <div class="row">
@@ -74,7 +130,7 @@
                         <div class="mb-3">
                             <label for="card-element" class="form-label">Credit or Debit Card</label>
                             <div id="card-element" class="form-control"></div>
-                            <div id="card-errors" class="invalid-feedback" role="alert"></div>
+                            <div id="card-errors" role="alert"></div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
                             <span id="button-text">Pay ${{ "%.2f"|format(total) }}</span>
@@ -87,36 +143,8 @@
     </div>
 </div>
 
-<!-- Load Stripe.js -->
-<script src="https://js.stripe.com/v3/"></script>
-
-<!-- Initialize Stripe and handle payment -->
 <script>
-// Initialize Stripe and Elements
-const stripe = Stripe('{{ stripe_publishable_key }}');
-const elements = stripe.elements({
-    appearance: {
-        theme: 'night',
-        variables: {
-            colorPrimary: '#0d6efd',
-            colorBackground: '#212529',
-            colorText: '#ffffff',
-            colorDanger: '#dc3545',
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-            spacingUnit: '2px',
-            borderRadius: '4px'
-        }
-    }
-});
-
-// Create card element
-const cardElement = elements.create('card');
-
-// Wait for DOM to be ready before mounting
 document.addEventListener('DOMContentLoaded', function() {
-    // Mount the card element
-    cardElement.mount('#card-element');
-    
     const form = document.getElementById('payment-form');
     const submitButton = document.getElementById('submit-button');
     const buttonText = document.getElementById('button-text');
