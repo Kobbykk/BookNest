@@ -55,7 +55,6 @@ with app.app_context():
 
     # Create admin user if not exists
     admin_email = 'admin@gmail.com'
-    app.logger.info(f"Checking for admin user with email: {admin_email}")
     admin = User.query.filter(User.email.ilike(admin_email)).first()
     if not admin:
         app.logger.info("Creating new admin user")
@@ -65,8 +64,8 @@ with app.app_context():
             password_hash=generate_password_hash('Password123'),
             is_admin=True
         )
-        db.session.add(admin)
         try:
+            db.session.add(admin)
             db.session.commit()
             app.logger.info("Admin user created successfully")
         except Exception as e:

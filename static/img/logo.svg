@@ -6,6 +6,13 @@
   <line x1="12" y1="6" x2="18" y2="6"></line>
   <line x1="12" y1="10" x2="18" y2="10"></line>
   <line x1="12" y1="14" x2="18" y2="14"></line>
-  <!-- Bookmark -->
-  <path d="M9 3v18l3-3 3 3V3H9z"></path>
+  <!-- Bookmark with gradient -->
+  <path d="M9 3v18l3-3 3 3V3H9z" fill="url(#gradient)" stroke="none"></path>
+  <!-- Define gradient -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:var(--bs-primary);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:var(--bs-info);stop-opacity:1" />
+    </linearGradient>
+  </defs>
 </svg>
