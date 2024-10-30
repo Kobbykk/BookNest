@@ -10,9 +10,13 @@ cart = Blueprint('cart', __name__)
 @cart.route('/cart/count')
 @login_required
 def get_cart_count():
-    cart_data = session.get('cart', {})
-    count = sum(cart_data.values())
-    return jsonify({'count': count})
+    try:
+        cart_data = session.get('cart', {})
+        count = sum(int(val) for val in cart_data.values())
+        return jsonify({'count': count, 'success': True})
+    except Exception as e:
+        current_app.logger.error(f'Error getting cart count: {str(e)}')
+        return jsonify({'count': 0, 'success': False, 'error': 'Failed to fetch cart count'})
 
 @cart.route('/cart')
 @login_required

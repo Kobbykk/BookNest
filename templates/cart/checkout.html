@@ -1,5 +1,27 @@
 {% extends "base.html" %}
 
+{% block head %}
+<!-- Stripe Integration -->
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    const stripe = Stripe('{{ stripe_publishable_key }}');
+    const elements = stripe.elements({
+        appearance: {
+            theme: 'night',
+            variables: {
+                colorPrimary: '#0d6efd',
+                colorBackground: '#212529',
+                colorText: '#ffffff',
+                colorDanger: '#dc3545',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+                spacingUnit: '2px',
+                borderRadius: '4px'
+            }
+        }
+    });
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h2 class="mb-4">Checkout</h2>
@@ -59,114 +81,99 @@
             </div>
         </div>
     </div>
-
-    <!-- Stripe Integration -->
-    <script src="https://js.stripe.com/v3/"></script>
-    <script>
-        const stripe = Stripe('{{ stripe_publishable_key }}');
-        const elements = stripe.elements({
-            appearance: {
-                theme: 'night',
-                variables: {
-                    colorPrimary: '#0d6efd',
-                    colorBackground: '#212529',
-                    colorText: '#ffffff',
-                    colorDanger: '#dc3545',
-                    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                    spacingUnit: '2px',
-                    borderRadius: '4px'
-                }
-            }
-        });
-
-        const cardElement = elements.create('card', {
-            style: {
-                base: {
-                    color: '#ffffff',
-                    fontSize: '16px',
-                    '::placeholder': {
-                        color: '#6c757d'
-                    }
-                },
-                invalid: {
-                    color: '#dc3545',
-                    iconColor: '#dc3545'
-                }
-            }
-        });
-
-        cardElement.mount('#card-element');
-
-        const form = document.getElementById('payment-form');
-        const submitButton = document.getElementById('submit-button');
-        const buttonText = document.getElementById('button-text');
-        const spinner = document.getElementById('spinner');
-        const errorDisplay = document.getElementById('card-errors');
-
-        // Handle real-time validation errors
-        cardElement.on('change', (event) => {
-            if (event.error) {
-                showError(event.error.message);
-            } else {
-                clearError();
-            }
-        });
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            setLoading(true);
-
-            try {
-                const {paymentMethod, error} = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement,
-                });
-
-                if (error) {
-                    showError(error.message);
-                    setLoading(false);
-                    return;
-                }
-
-                const response = await fetch('/cart/process-payment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        payment_method_id: paymentMethod.id,
-                    }),
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    window.location.href = result.redirect_url;
-                } else {
-                    showError(result.error || 'An error occurred during payment processing.');
-                    setLoading(false);
-                }
-            } catch (error) {
-                showError('Network error. Please try again.');
-                setLoading(false);
-            }
-        });
-
-        function setLoading(isLoading) {
-            submitButton.disabled = isLoading;
-            buttonText.textContent = isLoading ? 'Processing...' : `Pay ${{ "%.2f"|format(total) }}`;
-            spinner.classList.toggle('d-none', !isLoading);
-        }
-
-        function showError(message) {
-            errorDisplay.textContent = message;
-            errorDisplay.classList.remove('d-none');
-        }
-
-        function clearError() {
-            errorDisplay.textContent = '';
-            errorDisplay.classList.add('d-none');
-        }
-    </script>
 </div>
+
+<script>
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                color: '#ffffff',
+                fontSize: '16px',
+                '::placeholder': {
+                    color: '#6c757d'
+                },
+                backgroundColor: '#212529'
+            },
+            invalid: {
+                color: '#dc3545',
+                iconColor: '#dc3545'
+            }
+        }
+    });
+
+    cardElement.mount('#card-element');
+
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    const buttonText = document.getElementById('button-text');
+    const spinner = document.getElementById('spinner');
+    const errorDisplay = document.getElementById('card-errors');
+
+    cardElement.on('change', (event) => {
+        if (event.error) {
+            showError(event.error.message);
+        } else {
+            clearError();
+        }
+    });
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setLoading(true);
+
+        try {
+            const {paymentMethod, error} = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+            });
+
+            if (error) {
+                showError(error.message);
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch('/cart/process-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    payment_method_id: paymentMethod.id,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                window.location.href = result.redirect_url;
+            } else {
+                throw new Error(result.error || 'Payment processing failed');
+            }
+        } catch (error) {
+            showError(error.message || 'An error occurred during payment processing');
+            setLoading(false);
+        }
+    });
+
+    function setLoading(isLoading) {
+        submitButton.disabled = isLoading;
+        buttonText.textContent = isLoading ? 'Processing...' : `Pay ${{ "%.2f"|format(total) }}`;
+        spinner.classList.toggle('d-none', !isLoading);
+    }
+
+    function showError(message) {
+        errorDisplay.textContent = message;
+        errorDisplay.classList.remove('d-none');
+    }
+
+    function clearError() {
+        errorDisplay.textContent = '';
+        errorDisplay.classList.add('d-none');
+    }
+</script>
 {% endblock %}
