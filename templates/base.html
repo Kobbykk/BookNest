@@ -43,6 +43,11 @@
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
+                            <span class="nav-link">
+                                <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+                            </span>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link position-relative" href="{{ url_for('cart.view_cart') }}">
                                 <i class="bi bi-cart3 me-1"></i>Cart
                                 <span class="badge bg-primary position-absolute top-0 start-100 translate-middle" id="cart-count">0</span>
