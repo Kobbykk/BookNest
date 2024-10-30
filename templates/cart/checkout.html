@@ -4,6 +4,7 @@
 <div class="container">
     <h2 class="mb-4">Checkout</h2>
     <div class="row">
+        <!-- Order Summary Section -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
@@ -37,6 +38,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Payment Section -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
@@ -44,10 +47,8 @@
                     <form id="payment-form" class="needs-validation" novalidate>
                         <div class="mb-3">
                             <label for="card-element" class="form-label">Credit or Debit Card</label>
-                            <div id="card-element" class="form-control">
-                                <!-- Stripe Elements Placeholder -->
-                            </div>
-                            <div id="card-errors" class="invalid-feedback d-block" role="alert"></div>
+                            <div id="card-element" class="form-control bg-dark"></div>
+                            <div id="card-errors" class="invalid-feedback d-none" role="alert"></div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
                             <span id="button-text">Pay ${{ "%.2f"|format(total) }}</span>
@@ -58,116 +59,114 @@
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block content_scripts %}
-<!-- Stripe Elements and custom payment handling -->
-<script src="https://js.stripe.com/v3/"></script>
-<script>
-    // Initialize Stripe with publishable key
-    const stripe = Stripe('{{ stripe_publishable_key }}');
-    
-    // Create an instance of Elements
-    const elements = stripe.elements({
-        fonts: [
-            {
-                cssSrc: 'https://fonts.googleapis.com/css?family=Source+Code+Pro',
-            },
-        ],
-    });
-
-    // Custom styling for the card Element
-    const style = {
-        base: {
-            color: '#fff',
-            fontFamily: 'Source Code Pro, Consolas, Menlo, monospace',
-            fontSmoothing: 'antialiased',
-            fontSize: '16px',
-            '::placeholder': {
-                color: '#aab7c4'
-            },
-        },
-        invalid: {
-            color: '#dc3545',
-            iconColor: '#dc3545'
-        }
-    };
-
-    // Create a card Element and mount it to the div
-    const card = elements.create('card', { style });
-    card.mount('#card-element');
-
-    // Handle real-time validation errors
-    card.addEventListener('change', function(event) {
-        const displayError = document.getElementById('card-errors');
-        if (event.error) {
-            displayError.textContent = event.error.message;
-            displayError.classList.remove('d-none');
-        } else {
-            displayError.textContent = '';
-            displayError.classList.add('d-none');
-        }
-    });
-
-    // Handle form submission
-    const form = document.getElementById('payment-form');
-    const submitButton = document.getElementById('submit-button');
-    const buttonText = document.getElementById('button-text');
-    const spinner = document.getElementById('spinner');
-
-    form.addEventListener('submit', async function(event) {
-        event.preventDefault();
-
-        // Disable the submit button and show spinner
-        submitButton.disabled = true;
-        buttonText.textContent = 'Processing...';
-        spinner.classList.remove('d-none');
-
-        try {
-            const {paymentMethod, error} = await stripe.createPaymentMethod({
-                type: 'card',
-                card: card,
-            });
-
-            if (error) {
-                handleError(error);
-                return;
+    <!-- Stripe Integration -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('{{ stripe_publishable_key }}');
+        const elements = stripe.elements({
+            appearance: {
+                theme: 'night',
+                variables: {
+                    colorPrimary: '#0d6efd',
+                    colorBackground: '#212529',
+                    colorText: '#ffffff',
+                    colorDanger: '#dc3545',
+                    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+                    spacingUnit: '2px',
+                    borderRadius: '4px'
+                }
             }
+        });
 
-            // Send payment info to server
-            const response = await fetch('/cart/process-payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
+        const cardElement = elements.create('card', {
+            style: {
+                base: {
+                    color: '#ffffff',
+                    fontSize: '16px',
+                    '::placeholder': {
+                        color: '#6c757d'
+                    }
                 },
-                body: JSON.stringify({
-                    payment_method_id: paymentMethod.id,
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // Payment successful - redirect to order confirmation
-                window.location.href = result.redirect_url;
-            } else {
-                handleError({ message: result.error || 'An error occurred while processing your payment.' });
+                invalid: {
+                    color: '#dc3545',
+                    iconColor: '#dc3545'
+                }
             }
-        } catch (error) {
-            handleError({ message: 'Network error. Please try again.' });
-        }
-    });
+        });
 
-    function handleError(error) {
-        const errorElement = document.getElementById('card-errors');
-        errorElement.textContent = error.message;
-        errorElement.classList.remove('d-none');
-        
-        // Re-enable the submit button and hide spinner
-        submitButton.disabled = false;
-        buttonText.textContent = 'Pay ${{ "%.2f"|format(total) }}';
-        spinner.classList.add('d-none');
-    }
-</script>
+        cardElement.mount('#card-element');
+
+        const form = document.getElementById('payment-form');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const spinner = document.getElementById('spinner');
+        const errorDisplay = document.getElementById('card-errors');
+
+        // Handle real-time validation errors
+        cardElement.on('change', (event) => {
+            if (event.error) {
+                showError(event.error.message);
+            } else {
+                clearError();
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            setLoading(true);
+
+            try {
+                const {paymentMethod, error} = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                });
+
+                if (error) {
+                    showError(error.message);
+                    setLoading(false);
+                    return;
+                }
+
+                const response = await fetch('/cart/process-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        payment_method_id: paymentMethod.id,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = result.redirect_url;
+                } else {
+                    showError(result.error || 'An error occurred during payment processing.');
+                    setLoading(false);
+                }
+            } catch (error) {
+                showError('Network error. Please try again.');
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            submitButton.disabled = isLoading;
+            buttonText.textContent = isLoading ? 'Processing...' : `Pay ${{ "%.2f"|format(total) }}`;
+            spinner.classList.toggle('d-none', !isLoading);
+        }
+
+        function showError(message) {
+            errorDisplay.textContent = message;
+            errorDisplay.classList.remove('d-none');
+        }
+
+        function clearError() {
+            errorDisplay.textContent = '';
+            errorDisplay.classList.add('d-none');
+        }
+    </script>
+</div>
 {% endblock %}
