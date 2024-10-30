@@ -57,7 +57,7 @@ def update_cart():
     session['cart'] = cart_data
     return jsonify({'success': True})
 
-@cart.route('/cart/checkout')
+@cart.route('/cart/checkout', methods=['GET'])
 @login_required
 def checkout():
     cart_data = session.get('cart', {})
