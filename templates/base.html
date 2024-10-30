@@ -32,10 +32,15 @@
                             </a>
                         </li>
                         {% if current_user.is_admin %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
-                                    <i class="bi bi-gear me-1"></i>Admin
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-gear me-1"></i>CONTENT MANAGEMENT
                                 </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.manage_categories') }}">CATEGORY</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">PRODUCT</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">MANAGE USER</a></li>
+                                </ul>
                             </li>
                         {% endif %}
                     {% endif %}

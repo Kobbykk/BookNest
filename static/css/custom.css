@@ -91,6 +91,21 @@
     left: 10%;
 }
 
+/* Dropdown menu styles */
+.dropdown-menu {
+    background-color: #2b3035;
+    border-color: rgba(255,255,255,0.15);
+}
+
+.dropdown-item {
+    color: #fff;
+}
+
+.dropdown-item:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
 /* Enhanced form controls */
 .form-control {
     padding: 0.75rem 1rem;
