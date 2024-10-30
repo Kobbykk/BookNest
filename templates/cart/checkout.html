@@ -1,32 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-<script src="https://js.stripe.com/v3/"></script>
-<script>
-    // Initialize Stripe right away
-    const stripe = Stripe('{{ stripe_publishable_key }}');
-    const elements = stripe.elements({
-        appearance: {
-            theme: 'night',
-            variables: {
-                colorPrimary: '#0d6efd',
-                colorBackground: '#212529',
-                colorText: '#ffffff',
-                colorDanger: '#dc3545',
-                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                spacingUnit: '2px',
-                borderRadius: '4px'
-            }
-        }
-    });
-
-    // Create and mount card element immediately
-    const cardElement = elements.create('card');
-    document.addEventListener('DOMContentLoaded', function() {
-        cardElement.mount('#card-element');
-    });
-</script>
-
 <div class="container">
     <h2 class="mb-4">Checkout</h2>
     <div class="row">
@@ -113,8 +87,36 @@
     </div>
 </div>
 
+<!-- Load Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
+<!-- Initialize Stripe and handle payment -->
 <script>
+// Initialize Stripe and Elements
+const stripe = Stripe('{{ stripe_publishable_key }}');
+const elements = stripe.elements({
+    appearance: {
+        theme: 'night',
+        variables: {
+            colorPrimary: '#0d6efd',
+            colorBackground: '#212529',
+            colorText: '#ffffff',
+            colorDanger: '#dc3545',
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+            spacingUnit: '2px',
+            borderRadius: '4px'
+        }
+    }
+});
+
+// Create card element
+const cardElement = elements.create('card');
+
+// Wait for DOM to be ready before mounting
 document.addEventListener('DOMContentLoaded', function() {
+    // Mount the card element
+    cardElement.mount('#card-element');
+    
     const form = document.getElementById('payment-form');
     const submitButton = document.getElementById('submit-button');
     const buttonText = document.getElementById('button-text');
@@ -130,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Handle form submission
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         setLoading(true);
@@ -194,6 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function showError(message) {
         errorDisplay.textContent = message;
         errorDisplay.classList.remove('d-none');
+        errorDisplay.style.display = 'block';
     }
 
     function clearError() {
