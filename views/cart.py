@@ -141,23 +141,27 @@ def process_payment():
                     'price': book.price
                 })
         
+        # Create order first to get the order ID
+        order = Order(user_id=current_user.id, total=total, status='pending')
+        db.session.add(order)
+        db.session.flush()  # This will assign an ID to the order
+
         # Amount needs to be in cents
         amount = int(total * 100)
         
-        # Create payment intent with automatic_payment_methods only
+        # Create payment intent with return_url and allow_redirects
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency='usd',
             automatic_payment_methods={
                 'enabled': True,
+                'allow_redirects': 'always'
+            },
+            metadata={
+                'order_id': str(order.id)
             },
             return_url=url_for('cart.payment_success', _external=True)
         )
-        
-        # Create order
-        order = Order(user_id=current_user.id, total=total, status='pending')
-        db.session.add(order)
-        db.session.flush()
         
         # Create order items and update stock
         for item in order_items:
@@ -190,7 +194,7 @@ def process_payment():
         current_app.logger.error(f'Payment processing error: {str(e)}')
         return jsonify({
             'success': False,
-            'error': 'An error occurred while processing your payment'
+            'error': str(e)
         })
 
 @cart.route('/payment/success')
