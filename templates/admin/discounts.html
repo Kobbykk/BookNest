@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Discount Management</h2>
+    
+    <!-- Add Discount Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h4>Add New Discount</h4>
+            <form method="POST">
+                {{ form.csrf_token }}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control") }}
+                            {% if form.name.errors %}
+                                {% for error in form.name.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.percentage.label(class="form-label") }}
+                            {{ form.percentage(class="form-control", type="number", step="0.01") }}
+                            {% if form.percentage.errors %}
+                                {% for error in form.percentage.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control") }}
+                    {% if form.description.errors %}
+                        {% for error in form.description.errors %}
+                            <div class="alert alert-danger">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.start_date.label(class="form-label") }}
+                            {{ form.start_date(class="form-control", type="datetime-local") }}
+                            {% if form.start_date.errors %}
+                                {% for error in form.start_date.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.end_date.label(class="form-label") }}
+                            {{ form.end_date(class="form-control", type="datetime-local") }}
+                            {% if form.end_date.errors %}
+                                {% for error in form.end_date.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.books.label(class="form-label") }}
+                            {{ form.books(class="form-select") }}
+                            {% if form.books.errors %}
+                                {% for error in form.books.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.active(class="form-check-input") }}
+                        {{ form.active.label(class="form-check-label") }}
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Discount</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Active Discounts -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h4>Active Discounts</h4>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Percentage</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Status</th>
+                            <th>Applied To</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for discount in discounts %}
+                        <tr>
+                            <td>
+                                {{ discount.name }}
+                                <small class="d-block text-muted">{{ discount.description }}</small>
+                            </td>
+                            <td>{{ "%.1f"|format(discount.percentage) }}%</td>
+                            <td>{{ discount.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ discount.end_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if discount.active else 'secondary' }}">
+                                    {{ 'Active' if discount.active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% for book_discount in discount.books %}
+                                <small class="d-block">{{ book_discount.book.title }}</small>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

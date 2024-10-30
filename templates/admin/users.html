@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>User Management</h2>
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Admin Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if user.is_admin else 'secondary' }}">
+                                    {{ 'Admin' if user.is_admin else 'User' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if user.id != current_user.id %}
+                                <button class="btn btn-sm btn-{{ 'danger' if user.is_admin else 'success' }} toggle-admin"
+                                        data-user-id="{{ user.id }}">
+                                    {{ 'Remove Admin' if user.is_admin else 'Make Admin' }}
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-admin').forEach(button => {
+        button.addEventListener('click', async function() {
+            const userId = this.dataset.userId;
+            try {
+                const response = await fetch(`/admin/users/${userId}/toggle-admin`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error);
+                }
+                
+                // Update UI
+                const badge = this.closest('tr').querySelector('.badge');
+                badge.className = `badge bg-${data.is_admin ? 'success' : 'secondary'}`;
+                badge.textContent = data.is_admin ? 'Admin' : 'User';
+                
+                this.className = `btn btn-sm btn-${data.is_admin ? 'danger' : 'success'} toggle-admin`;
+                this.textContent = data.is_admin ? 'Remove Admin' : 'Make Admin';
+                
+                showToast('Success', 'Admin status updated successfully!', 'success');
+            } catch (error) {
+                showToast('Error', error.message, 'danger');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

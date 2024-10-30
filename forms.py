@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, FloatField, TextAreaField, IntegerField, SelectField
+from wtforms import StringField, PasswordField, FloatField, TextAreaField, IntegerField, SelectField, DateTimeField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, NumberRange
+from datetime import datetime
 
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -18,14 +19,31 @@ class BookForm(FlaskForm):
     description = TextAreaField('Description')
     image_url = StringField('Image URL')
     stock = IntegerField('Stock', validators=[DataRequired(), NumberRange(min=0)])
-    category = SelectField('Category', choices=[
-        ('Programming', 'Programming'),
-        ('Data Science', 'Data Science'),
-        ('Web Development', 'Web Development'),
-        ('Database', 'Database'),
-        ('General', 'General')
-    ], validators=[DataRequired()])
+    category_id = SelectField('Category', coerce=int, validators=[DataRequired()])
+
+    def __init__(self, *args, **kwargs):
+        super(BookForm, self).__init__(*args, **kwargs)
+        from models import Category
+        self.category_id.choices = [(c.id, c.name) for c in Category.query.all()]
 
 class ReviewForm(FlaskForm):
     rating = IntegerField('Rating', validators=[DataRequired(), NumberRange(min=1, max=5)])
     comment = TextAreaField('Review', validators=[DataRequired(), Length(min=10, max=500)])
+
+class CategoryForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired(), Length(min=2, max=50)])
+    description = TextAreaField('Description')
+
+class DiscountForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
+    description = TextAreaField('Description')
+    percentage = FloatField('Discount Percentage', validators=[DataRequired(), NumberRange(min=0, max=100)])
+    start_date = DateTimeField('Start Date', validators=[DataRequired()], default=datetime.utcnow)
+    end_date = DateTimeField('End Date', validators=[DataRequired()])
+    active = BooleanField('Active')
+    books = SelectField('Apply to Category', validators=[DataRequired()])
+
+    def __init__(self, *args, **kwargs):
+        super(DiscountForm, self).__init__(*args, **kwargs)
+        from models import Category
+        self.books.choices = [(c.id, c.name) for c in Category.query.all()]

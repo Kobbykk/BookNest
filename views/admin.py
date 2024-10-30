@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models import Book, Order, OrderItem
-from forms import BookForm
+from models import Book, Order, OrderItem, User, Category, Discount, BookDiscount
+from forms import BookForm, CategoryForm, DiscountForm
 from app import db
 from utils.email import send_order_status_email
+from datetime import datetime
 
 admin = Blueprint('admin', __name__)
 
@@ -15,16 +16,135 @@ def dashboard():
         return redirect(url_for('main.index'))
     books = Book.query.all()
     orders = Order.query.all()
-    
-    # Get unique categories
-    categories = db.session.query(Book.category).distinct().all()
-    categories = [cat[0] for cat in categories]
+    users = User.query.all()
+    categories = Category.query.all()
+    discounts = Discount.query.all()
     
     return render_template('admin/dashboard.html', 
                          books=books, 
-                         orders=orders, 
-                         categories=categories)
+                         orders=orders,
+                         users=users,
+                         categories=categories,
+                         discounts=discounts)
 
+@admin.route('/admin/users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        return redirect(url_for('main.index'))
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@admin.route('/admin/users/<int:user_id>/toggle-admin', methods=['POST'])
+@login_required
+def toggle_admin(user_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied'})
+    
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        return jsonify({'success': False, 'error': 'Cannot modify your own admin status'})
+    
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    return jsonify({'success': True, 'is_admin': user.is_admin})
+
+@admin.route('/admin/categories', methods=['GET', 'POST'])
+@login_required
+def manage_categories():
+    if not current_user.is_admin:
+        return redirect(url_for('main.index'))
+    
+    form = CategoryForm()
+    if form.validate_on_submit():
+        category = Category(
+            name=form.name.data,
+            description=form.description.data
+        )
+        db.session.add(category)
+        db.session.commit()
+        flash('Category added successfully.')
+        return redirect(url_for('admin.manage_categories'))
+    
+    categories = Category.query.all()
+    return render_template('admin/categories.html', categories=categories, form=form)
+
+@admin.route('/admin/categories/<int:category_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_category(category_id):
+    if not current_user.is_admin:
+        return redirect(url_for('main.index'))
+    
+    category = Category.query.get_or_404(category_id)
+    form = CategoryForm(obj=category)
+    
+    if form.validate_on_submit():
+        category.name = form.name.data
+        category.description = form.description.data
+        db.session.commit()
+        flash('Category updated successfully.')
+        return redirect(url_for('admin.manage_categories'))
+    
+    return render_template('admin/category_form.html', form=form, category=category)
+
+@admin.route('/admin/categories/<int:category_id>/delete', methods=['POST'])
+@login_required
+def delete_category(category_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied'})
+    
+    category = Category.query.get_or_404(category_id)
+    if category.books:
+        return jsonify({'success': False, 'error': 'Cannot delete category with books'})
+    
+    try:
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/admin/discounts', methods=['GET', 'POST'])
+@login_required
+def manage_discounts():
+    if not current_user.is_admin:
+        return redirect(url_for('main.index'))
+    
+    form = DiscountForm()
+    if form.validate_on_submit():
+        discount = Discount(
+            name=form.name.data,
+            description=form.description.data,
+            percentage=form.percentage.data,
+            start_date=form.start_date.data,
+            end_date=form.end_date.data,
+            active=form.active.data
+        )
+        db.session.add(discount)
+        db.session.flush()
+        
+        # Apply discount to all books in the selected category
+        category_id = form.books.data
+        books = Book.query.filter_by(category_id=category_id).all()
+        for book in books:
+            book_discount = BookDiscount(
+                book_id=book.id,
+                discount_id=discount.id,
+                start_date=form.start_date.data,
+                end_date=form.end_date.data,
+                active=form.active.data
+            )
+            db.session.add(book_discount)
+        
+        db.session.commit()
+        flash('Discount added successfully.')
+        return redirect(url_for('admin.manage_discounts'))
+    
+    discounts = Discount.query.all()
+    return render_template('admin/discounts.html', discounts=discounts, form=form)
+
+# Existing routes...
 @admin.route('/admin/book/add', methods=['GET', 'POST'])
 @login_required
 def add_book():
@@ -41,7 +161,7 @@ def add_book():
             description=form.description.data,
             image_url=form.image_url.data,
             stock=form.stock.data,
-            category=form.category.data
+            category_id=form.category_id.data
         )
         db.session.add(book)
         db.session.commit()
@@ -66,7 +186,7 @@ def edit_book(book_id):
         book.description = form.description.data
         book.image_url = form.image_url.data
         book.stock = form.stock.data
-        book.category = form.category.data
+        book.category_id = form.category_id.data
         
         db.session.commit()
         flash('Book updated successfully.')
@@ -117,14 +237,14 @@ def bulk_update_books():
         return jsonify({'success': False, 'error': 'Access denied'})
     
     action = request.json.get('action')
-    category = request.json.get('category')
+    category_id = request.json.get('category')
     value = request.json.get('value')
     
-    if not all([action, category, value]):
+    if not all([action, category_id, value]):
         return jsonify({'success': False, 'error': 'Missing required fields'})
     
     try:
-        books = Book.query.filter_by(category=category).all()
+        books = Book.query.filter_by(category_id=category_id).all()
         if action == 'price_adjust':
             for book in books:
                 # Value is percentage change

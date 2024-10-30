@@ -19,15 +19,51 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category = db.Column(db.String(50), nullable=False, default='General')
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True)
+    discounts = db.relationship('BookDiscount', backref='book', lazy=True)
 
     @property
     def average_rating(self):
         if not self.reviews:
             return 0
         return sum(review.rating for review in self.reviews) / len(self.reviews)
+
+    @property
+    def current_price(self):
+        active_discount = BookDiscount.query.filter_by(
+            book_id=self.id,
+            active=True,
+            end_date>=datetime.utcnow()
+        ).first()
+        if active_discount:
+            return self.price * (1 - active_discount.discount.percentage / 100)
+        return self.price
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    books = db.relationship('Book', backref='category', lazy=True)
+
+class Discount(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    percentage = db.Column(db.Float, nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    end_date = db.Column(db.DateTime, nullable=False)
+    active = db.Column(db.Boolean, default=True)
+    books = db.relationship('BookDiscount', backref='discount', lazy=True)
+
+class BookDiscount(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+    discount_id = db.Column(db.Integer, db.ForeignKey('discount.id'), nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=False)
+    active = db.Column(db.Boolean, default=True)
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
