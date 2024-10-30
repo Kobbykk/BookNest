@@ -5,6 +5,7 @@ from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash
+import logging
 
 class Base(DeclarativeBase):
     pass
@@ -15,6 +16,9 @@ mail = Mail()
 
 # create the app
 app = Flask(__name__)
+# Configure logging
+app.logger.setLevel(logging.INFO)
+
 # setup a secret key, required by sessions
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "a secret key"
 # configure the database
@@ -50,25 +54,34 @@ with app.app_context():
     db.create_all()
 
     # Create admin user if not exists
-    admin = User.query.filter_by(email='admin@gmail.com').first()
+    admin_email = 'admin@gmail.com'
+    app.logger.info(f"Checking for admin user with email: {admin_email}")
+    admin = User.query.filter(User.email.ilike(admin_email)).first()
     if not admin:
+        app.logger.info("Creating new admin user")
         admin = User(
             username='admin',
-            email='admin@gmail.com',
+            email=admin_email.lower(),
             password_hash=generate_password_hash('Password123'),
             is_admin=True
         )
         db.session.add(admin)
-        db.session.commit()
-        print("Admin user created")
+        try:
+            db.session.commit()
+            app.logger.info("Admin user created successfully")
+        except Exception as e:
+            app.logger.error(f"Error creating admin user: {str(e)}")
+            db.session.rollback()
+    else:
+        app.logger.info("Admin user already exists")
 
     # Register blueprints
     from views.auth import auth
     from views.main import main
-    from views.admin import admin
+    from views.admin import admin as admin_blueprint
     from views.cart import cart
     
     app.register_blueprint(auth)
     app.register_blueprint(main)
-    app.register_blueprint(admin)
+    app.register_blueprint(admin_blueprint)
     app.register_blueprint(cart)
