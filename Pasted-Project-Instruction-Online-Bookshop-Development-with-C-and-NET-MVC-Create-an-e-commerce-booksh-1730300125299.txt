@@ -1,0 +1,45 @@
+Project Instruction: Online Bookshop Development with C# and .NET MVC
+
+Create an e-commerce bookshop application using C# and .NET MVC framework, implementing the following features:
+
+    User Authentication:
+        Use ASP.NET Identity for user registration, login, and logout.
+        Ensure secure storage of user data with hashed passwords.
+
+    Book Listings:
+        Display available books on the home page with details such as title, author, price, and cover image.
+        Implement a "Details" button for each book that navigates to a detailed view with additional information.
+
+    Shopping Cart:
+        Allow users to add books to a shopping cart.
+        Include options to update quantities or remove items from the cart.
+        Show the cart total and a “Proceed to Checkout” option.
+
+    Purchasing System:
+        Implement a checkout process where users review their order summary and confirm purchase.
+        Integrate Stripe or PayPal for real payment processing, or set up a test payment method for development.
+
+    Order Management:
+        Provide an order history view where users can see their past orders.
+        Implement order status updates (e.g., pending, completed, shipped) in the admin section.
+
+    Admin Panel:
+        Develop an admin area with CRUD functionalities for managing books, users, and orders.
+        Add features to apply discounts, update prices, and manage book categories.
+
+    Frontend UI:
+        Use Razor Views for the frontend UI.
+        Make it responsive and user-friendly, with components similar to the provided design (book cards, prices, and details).
+        Consider using Bootstrap for layout and styling.
+
+    Database:
+        Use Entity Framework Core with SQL Server or SQLite to store user, book, and order data.
+
+    Additional Features (optional):
+        Implement a search bar and category filter for finding specific books.
+        Enable user reviews and ratings for each book.
+
+Testing and Deployment:
+
+    Perform unit tests and integration tests for all key features.
+    Deploy the application on Azure or another suitable hosting service.
