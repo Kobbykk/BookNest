@@ -1,61 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Move Stripe.js script to the very top -->
 <script src="https://js.stripe.com/v3/"></script>
-<script>
-    // Initialize Stripe right away
-    const stripe = Stripe('{{ stripe_publishable_key }}');
-    const elements = stripe.elements({
-        appearance: {
-            theme: 'night',
-            variables: {
-                colorPrimary: '#0d6efd',
-                colorBackground: '#212529',
-                colorText: '#ffffff',
-                colorDanger: '#dc3545',
-                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                spacingUnit: '2px',
-                borderRadius: '4px'
-            }
-        }
-    });
-
-    // Create and mount card element immediately
-    const cardElement = elements.create('card');
-    document.addEventListener('DOMContentLoaded', function() {
-        cardElement.mount('#card-element');
-        
-        // Add visible styles to card element
-        const cardElementStyles = `
-            #card-element {
-                padding: 12px;
-                border: 1px solid #495057;
-                border-radius: 4px;
-                background-color: #2b3035;
-                color: white;
-                min-height: 40px;
-            }
-            #card-element.StripeElement--focus {
-                border-color: #0d6efd;
-                box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-            }
-            #card-element.StripeElement--invalid {
-                border-color: #dc3545;
-            }
-            #card-errors {
-                color: #dc3545;
-                background-color: rgba(220, 53, 69, 0.1);
-                padding: 10px;
-                border-radius: 4px;
-                margin-top: 10px;
-                display: none;
-            }
-        `;
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = cardElementStyles;
-        document.head.appendChild(styleSheet);
-    });
-</script>
 
 <div class="container">
     <h2 class="mb-4">Checkout</h2>
@@ -129,8 +76,8 @@
                         </div>
                         <div class="mb-3">
                             <label for="card-element" class="form-label">Credit or Debit Card</label>
-                            <div id="card-element" class="form-control"></div>
-                            <div id="card-errors" role="alert"></div>
+                            <div id="card-element" class="form-control" style="padding: 12px; min-height: 44px; background-color: #2b3035;"></div>
+                            <div id="card-errors" class="invalid-feedback" style="display: none;"></div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
                             <span id="button-text">Pay ${{ "%.2f"|format(total) }}</span>
@@ -143,8 +90,71 @@
     </div>
 </div>
 
+<style>
+#card-element {
+    background-color: #2b3035 !important;
+    border: 1px solid #495057;
+    border-radius: 4px;
+    padding: 12px;
+    min-height: 44px;
+}
+
+#card-element.StripeElement--focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#card-element.StripeElement--invalid {
+    border-color: #dc3545;
+}
+
+.StripeElement {
+    width: 100%;
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Stripe
+    const stripe = Stripe('{{ stripe_publishable_key }}');
+    
+    // Create Elements instance
+    const elements = stripe.elements({
+        appearance: {
+            theme: 'night',
+            variables: {
+                colorPrimary: '#0d6efd',
+                colorBackground: '#2b3035',
+                colorText: '#ffffff',
+                colorDanger: '#dc3545',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+                spacingUnit: '2px',
+                borderRadius: '4px'
+            }
+        }
+    });
+
+    // Create and mount card element
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                color: '#ffffff',
+                backgroundColor: '#2b3035',
+                '::placeholder': {
+                    color: '#aab7c4'
+                },
+                fontSize: '16px',
+            },
+            invalid: {
+                color: '#dc3545',
+                iconColor: '#dc3545'
+            }
+        }
+    });
+
+    // Mount card element
+    cardElement.mount('#card-element');
+
     const form = document.getElementById('payment-form');
     const submitButton = document.getElementById('submit-button');
     const buttonText = document.getElementById('button-text');
@@ -224,13 +234,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showError(message) {
         errorDisplay.textContent = message;
-        errorDisplay.classList.remove('d-none');
         errorDisplay.style.display = 'block';
     }
 
     function clearError() {
         errorDisplay.textContent = '';
-        errorDisplay.classList.add('d-none');
+        errorDisplay.style.display = 'none';
     }
 });
 </script>
