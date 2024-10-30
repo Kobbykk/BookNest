@@ -18,20 +18,34 @@
     border-color: rgba(var(--bs-primary-rgb), 0.3);
 }
 
-.card-img-top {
-    height: 300px;
-    object-fit: cover;
-    border-radius: calc(var(--bs-card-border-radius) var(--bs-card-border-radius) 0 0);
+/* Table styles */
+.table {
+    background-color: #2b3035;
+    color: #ffffff;
+    margin-bottom: 0;
 }
 
-/* Enhanced button styles */
+.table thead th {
+    background-color: #212529;
+    color: #ffffff;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    border-top: none;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Button styles */
 .btn {
     transition: all var(--transition-speed);
     text-transform: uppercase;
     font-weight: 500;
     letter-spacing: 0.5px;
     padding: 0.5rem 1.5rem;
-    border-radius: 50px;
 }
 
 .btn-primary {
@@ -43,105 +57,6 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb), 0.3);
     background: linear-gradient(45deg, var(--bs-info), var(--bs-primary));
-}
-
-/* Improved navigation */
-.navbar {
-    padding: 1rem 0;
-    background: rgba(var(--bs-dark-rgb), 0.95) !important;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-}
-
-.navbar-brand {
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-/* Admin panel specific styles */
-.dropdown-menu {
-    background-color: #2b3035;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 0.5rem 0;
-}
-
-.dropdown-item {
-    color: #ffffff;
-    font-size: 0.9rem;
-    padding: 0.5rem 1.5rem;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-}
-
-.dropdown-item:hover {
-    background-color: #0d6efd;
-    color: #ffffff;
-}
-
-.nav-link.dropdown-toggle {
-    font-weight: 500;
-    letter-spacing: 0.5px;
-}
-
-/* Table enhancements */
-.table {
-    margin-bottom: 0;
-}
-
-.table th {
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
-    border-top: none;
-    background: rgba(var(--bs-dark-rgb), 0.5);
-}
-
-.table td {
-    vertical-align: middle;
-}
-
-/* Status badges */
-.badge {
-    padding: 0.5em 1em;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-}
-
-.status-pending {
-    background-color: var(--bs-warning);
-    color: var(--bs-dark);
-}
-
-.status-shipped {
-    background-color: var(--bs-info);
-    color: var(--bs-dark);
-}
-
-.status-completed {
-    background-color: var(--bs-success);
-    color: var(--bs-dark);
-}
-
-/* Form controls */
-.form-control {
-    background-color: rgba(var(--bs-dark-rgb), 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--bs-light);
-}
-
-.form-control:focus {
-    background-color: rgba(var(--bs-dark-rgb), 0.9);
-    border-color: var(--bs-primary);
-    color: var(--bs-light);
-    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
-}
-
-/* Bulk operations form */
-#bulk-update-form {
-    background: rgba(var(--bs-dark-rgb), 0.5);
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Modal styling */
@@ -156,6 +71,20 @@
 
 .modal-footer {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Form controls */
+.form-control {
+    background-color: rgba(var(--bs-dark-rgb), 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--bs-light);
+}
+
+.form-control:focus {
+    background-color: rgba(var(--bs-dark-rgb), 0.9);
+    border-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
 /* Responsive adjustments */

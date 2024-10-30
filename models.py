@@ -19,7 +19,7 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    category = db.Column(db.String(50))  # Changed to string field for simpler category management
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True)
     discounts = db.relationship('BookDiscount', backref='book', lazy=True)
@@ -32,10 +32,10 @@ class Book(db.Model):
 
     @property
     def current_price(self):
-        active_discount = BookDiscount.query.filter_by(
-            book_id=self.id,
-            active=True,
-            end_date>=datetime.utcnow()
+        active_discount = BookDiscount.query.filter(
+            BookDiscount.book_id == self.id,
+            BookDiscount.active == True,
+            BookDiscount.end_date >= datetime.utcnow()
         ).first()
         if active_discount:
             return self.price * (1 - active_discount.discount.percentage / 100)
@@ -45,7 +45,7 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.Text)
-    books = db.relationship('Book', backref='category', lazy=True)
+    display_order = db.Column(db.Integer, default=0)
 
 class Discount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
