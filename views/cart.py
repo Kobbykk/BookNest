@@ -8,15 +8,14 @@ import os
 cart = Blueprint('cart', __name__)
 
 @cart.route('/cart/count')
-@login_required
 def get_cart_count():
     try:
         cart_data = session.get('cart', {})
-        count = sum(int(val) for val in cart_data.values())
+        count = sum(int(val) for val in cart_data.values()) if cart_data else 0
         return jsonify({'count': count, 'success': True})
     except Exception as e:
         current_app.logger.error(f'Error getting cart count: {str(e)}')
-        return jsonify({'count': 0, 'success': False, 'error': 'Failed to fetch cart count'})
+        return jsonify({'count': 0, 'success': False, 'error': str(e)})
 
 @cart.route('/cart')
 @login_required
@@ -57,7 +56,8 @@ def add_to_cart():
             cart_data[book_id] = quantity
         
         session['cart'] = cart_data
-        return jsonify({'success': True, 'cart_count': sum(cart_data.values())})
+        count = sum(int(val) for val in cart_data.values())
+        return jsonify({'success': True, 'cart_count': count})
     except Exception as e:
         current_app.logger.error(f'Error adding to cart: {str(e)}')
         return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
@@ -76,7 +76,8 @@ def update_cart():
             cart_data.pop(book_id, None)
         
         session['cart'] = cart_data
-        return jsonify({'success': True, 'cart_count': sum(cart_data.values())})
+        count = sum(int(val) for val in cart_data.values())
+        return jsonify({'success': True, 'cart_count': count})
     except Exception as e:
         current_app.logger.error(f'Error updating cart: {str(e)}')
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500

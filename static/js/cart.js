@@ -94,7 +94,7 @@ async function fetchCartCount() {
         }
     } catch (error) {
         console.error('Error fetching cart count:', error);
-        updateCartCount(0);
+        // Don't update count on error, keep previous value
     }
 }
 
@@ -103,8 +103,9 @@ function updateCartCount(count) {
     const cartCount = document.getElementById('cart-count');
     if (cartCount) {
         count = parseInt(count) || 0;
-        cartCount.textContent = count;
-        cartCount.classList.toggle('d-none', count === 0);
+        cartCount.textContent = count.toString();
+        // Only hide if count is exactly 0
+        cartCount.style.display = count === 0 ? 'none' : 'inline';
     }
 }
 
