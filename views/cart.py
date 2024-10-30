@@ -11,7 +11,8 @@ cart = Blueprint('cart', __name__)
 def get_cart_count():
     try:
         cart_data = session.get('cart', {})
-        count = sum(int(val) for val in cart_data.values()) if cart_data else 0
+        # Only count items if cart_data exists and has items
+        count = sum(int(val) for val in cart_data.values()) if cart_data and cart_data.values() else 0
         return jsonify({'count': count, 'success': True})
     except Exception as e:
         current_app.logger.error(f'Error getting cart count: {str(e)}')
@@ -56,7 +57,7 @@ def add_to_cart():
             cart_data[book_id] = quantity
         
         session['cart'] = cart_data
-        count = sum(int(val) for val in cart_data.values())
+        count = sum(int(val) for val in cart_data.values()) if cart_data and cart_data.values() else 0
         return jsonify({'success': True, 'cart_count': count})
     except Exception as e:
         current_app.logger.error(f'Error adding to cart: {str(e)}')
@@ -76,7 +77,7 @@ def update_cart():
             cart_data.pop(book_id, None)
         
         session['cart'] = cart_data
-        count = sum(int(val) for val in cart_data.values())
+        count = sum(int(val) for val in cart_data.values()) if cart_data and cart_data.values() else 0
         return jsonify({'success': True, 'cart_count': count})
     except Exception as e:
         current_app.logger.error(f'Error updating cart: {str(e)}')
