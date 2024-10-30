@@ -1,25 +1,161 @@
-/* Additional custom styles */
+/* Base styles */
+:root {
+    --transition-speed: 0.3s;
+}
+
+/* Card styles */
+.card {
+    transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+    border: none;
+    background: var(--bs-dark);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
 .card-img-top {
     height: 300px;
     object-fit: cover;
+    border-radius: calc(var(--bs-card-border-radius) var(--bs-card-border-radius) 0 0);
 }
 
+/* Button styles */
+.btn {
+    transition: all var(--transition-speed);
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 0.5rem 1.5rem;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+/* Navigation */
+.navbar {
+    padding: 1rem 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.nav-link {
+    position: relative;
+    padding: 0.5rem 1rem;
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 50%;
+    background-color: var(--bs-primary);
+    transition: all var(--transition-speed);
+}
+
+.nav-link:hover::after {
+    width: 80%;
+    left: 10%;
+}
+
+/* Cart styles */
 .cart-quantity {
-    width: 70px;
+    width: 80px;
+    text-align: center;
+    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--bs-dark);
+    color: var(--bs-body-color);
 }
 
+/* Order status badges */
 .order-status {
     font-weight: bold;
+    padding: 0.35em 0.65em;
+    border-radius: var(--bs-border-radius);
+    display: inline-block;
 }
 
 .status-pending {
+    background-color: rgba(var(--bs-warning-rgb), 0.1);
     color: var(--bs-warning);
 }
 
 .status-completed {
+    background-color: rgba(var(--bs-success-rgb), 0.1);
     color: var(--bs-success);
 }
 
 .status-shipped {
+    background-color: rgba(var(--bs-info-rgb), 0.1);
     color: var(--bs-info);
+}
+
+/* Form styles */
+.form-control {
+    padding: 0.75rem 1rem;
+    border-width: 2px;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-loading {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, 
+        var(--bs-dark) 25%, 
+        var(--bs-secondary) 50%, 
+        var(--bs-dark) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+/* Book detail page */
+.book-detail-img {
+    max-height: 500px;
+    width: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Reviews section */
+.review-card {
+    border-left: 4px solid var(--bs-primary);
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+}
+
+/* Search and filter section */
+.search-section {
+    background: var(--bs-dark);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: var(--bs-border-radius);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-img-top {
+        height: 200px;
+    }
+    
+    .navbar {
+        padding: 0.5rem 0;
+    }
 }
