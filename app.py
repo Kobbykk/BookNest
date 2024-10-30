@@ -49,6 +49,19 @@ with app.app_context():
     # Create tables if they don't exist
     db.create_all()
 
+    # Create admin user if not exists
+    admin = User.query.filter_by(email='admin@gmail.com').first()
+    if not admin:
+        admin = User(
+            username='admin',
+            email='admin@gmail.com',
+            password_hash=generate_password_hash('Password123'),
+            is_admin=True
+        )
+        db.session.add(admin)
+        db.session.commit()
+        print("Admin user created")
+
     # Register blueprints
     from views.auth import auth
     from views.main import main
