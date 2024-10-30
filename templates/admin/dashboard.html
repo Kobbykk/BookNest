@@ -3,34 +3,78 @@
 {% block content %}
 <div class="container">
     <h2>Admin Dashboard</h2>
-    <div class="mb-3">
-        <a href="{{ url_for('admin.add_book') }}" class="btn btn-primary">Add New Book</a>
+    
+    <!-- Books Section -->
+    <div class="mb-5">
+        <h3>Books Management</h3>
+        <div class="mb-3">
+            <a href="{{ url_for('admin.add_book') }}" class="btn btn-primary">Add New Book</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for book in books %}
+                    <tr>
+                        <td>{{ book.title }}</td>
+                        <td>{{ book.author }}</td>
+                        <td>${{ "%.2f"|format(book.price) }}</td>
+                        <td>{{ book.stock }}</td>
+                        <td>
+                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-sm btn-secondary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Price</th>
-                    <th>Stock</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for book in books %}
-                <tr>
-                    <td>{{ book.title }}</td>
-                    <td>{{ book.author }}</td>
-                    <td>${{ "%.2f"|format(book.price) }}</td>
-                    <td>{{ book.stock }}</td>
-                    <td>
-                        <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-sm btn-secondary">View</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+    <!-- Orders Section -->
+    <div class="mb-5">
+        <h3>Orders Management</h3>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.user.email }}</td>
+                        <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>${{ "%.2f"|format(order.total) }}</td>
+                        <td><span class="status-{{ order.status.lower() }}">{{ order.status }}</span></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin.update_order_status', order_id=order.id) }}" class="d-inline">
+                                <select name="status" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
+                                    <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Shipped</option>
+                                    <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
+                                </select>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
