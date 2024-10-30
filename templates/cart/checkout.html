@@ -41,15 +41,17 @@
             <div class="card">
                 <div class="card-body">
                     <h3 class="card-title">Payment Information</h3>
-                    <form id="payment-form">
+                    <form id="payment-form" class="needs-validation" novalidate>
                         <div class="mb-3">
+                            <label for="card-element" class="form-label">Credit or Debit Card</label>
                             <div id="card-element" class="form-control">
                                 <!-- Stripe Elements Placeholder -->
                             </div>
                             <div id="card-errors" class="invalid-feedback d-block" role="alert"></div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
-                            Pay ${{ "%.2f"|format(total) }}
+                            <span id="button-text">Pay ${{ "%.2f"|format(total) }}</span>
+                            <span id="spinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
                         </button>
                     </form>
                 </div>
@@ -59,28 +61,79 @@
 </div>
 {% endblock %}
 
-{% block extra_scripts %}
+{% block content_scripts %}
+<!-- Stripe Elements and custom payment handling -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-    // Initialize Stripe
+    // Initialize Stripe with publishable key
     const stripe = Stripe('{{ stripe_publishable_key }}');
-    const elements = stripe.elements();
-    const card = elements.create('card');
+    
+    // Create an instance of Elements
+    const elements = stripe.elements({
+        fonts: [
+            {
+                cssSrc: 'https://fonts.googleapis.com/css?family=Source+Code+Pro',
+            },
+        ],
+    });
+
+    // Custom styling for the card Element
+    const style = {
+        base: {
+            color: '#fff',
+            fontFamily: 'Source Code Pro, Consolas, Menlo, monospace',
+            fontSmoothing: 'antialiased',
+            fontSize: '16px',
+            '::placeholder': {
+                color: '#aab7c4'
+            },
+        },
+        invalid: {
+            color: '#dc3545',
+            iconColor: '#dc3545'
+        }
+    };
+
+    // Create a card Element and mount it to the div
+    const card = elements.create('card', { style });
     card.mount('#card-element');
+
+    // Handle real-time validation errors
+    card.addEventListener('change', function(event) {
+        const displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+            displayError.classList.remove('d-none');
+        } else {
+            displayError.textContent = '';
+            displayError.classList.add('d-none');
+        }
+    });
 
     // Handle form submission
     const form = document.getElementById('payment-form');
     const submitButton = document.getElementById('submit-button');
+    const buttonText = document.getElementById('button-text');
+    const spinner = document.getElementById('spinner');
 
-    form.addEventListener('submit', async (event) => {
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
+
+        // Disable the submit button and show spinner
         submitButton.disabled = true;
+        buttonText.textContent = 'Processing...';
+        spinner.classList.remove('d-none');
 
         try {
-            const {paymentMethod} = await stripe.createPaymentMethod({
+            const {paymentMethod, error} = await stripe.createPaymentMethod({
                 type: 'card',
                 card: card,
             });
+
+            if (error) {
+                handleError(error);
+                return;
+            }
 
             // Send payment info to server
             const response = await fetch('/cart/process-payment', {
@@ -96,15 +149,25 @@
             const result = await response.json();
 
             if (result.success) {
+                // Payment successful - redirect to order confirmation
                 window.location.href = result.redirect_url;
             } else {
-                throw new Error(result.error);
+                handleError({ message: result.error || 'An error occurred while processing your payment.' });
             }
         } catch (error) {
-            const errorElement = document.getElementById('card-errors');
-            errorElement.textContent = error.message;
-            submitButton.disabled = false;
+            handleError({ message: 'Network error. Please try again.' });
         }
     });
+
+    function handleError(error) {
+        const errorElement = document.getElementById('card-errors');
+        errorElement.textContent = error.message;
+        errorElement.classList.remove('d-none');
+        
+        // Re-enable the submit button and hide spinner
+        submitButton.disabled = false;
+        buttonText.textContent = 'Pay ${{ "%.2f"|format(total) }}';
+        spinner.classList.add('d-none');
+    }
 </script>
 {% endblock %}
