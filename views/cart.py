@@ -149,16 +149,28 @@ def process_payment():
         # Amount needs to be in cents
         amount = int(total * 100)
         
-        # Create and confirm the payment intent
+        # Create and confirm the payment intent with return_url
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency='usd',
             payment_method=payment_method_id,
             confirmation_method='manual',
             confirm=True,
+            return_url=url_for('cart.payment_success', _external=True),
+            automatic_payment_methods={
+                'enabled': True,
+                'allow_redirects': 'always'
+            }
         )
         
-        if intent.status == 'succeeded':
+        # Handle the payment status
+        if intent.status == 'requires_action':
+            return jsonify({
+                'requires_action': True,
+                'payment_intent_client_secret': intent.client_secret,
+                'return_url': url_for('cart.payment_success', _external=True)
+            })
+        elif intent.status == 'succeeded':
             # Create order
             order = Order(user_id=current_user.id, total=total, status='pending')
             db.session.add(order)
@@ -202,3 +214,20 @@ def process_payment():
             'success': False,
             'error': 'An error occurred while processing your payment'
         })
+
+@cart.route('/payment/success')
+@login_required
+def payment_success():
+    payment_intent_id = request.args.get('payment_intent')
+    if payment_intent_id:
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        try:
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            if intent.status == 'succeeded':
+                # Process the order...
+                flash('Payment successful!', 'success')
+            else:
+                flash('Payment was not completed.', 'error')
+        except stripe.error.StripeError as e:
+            flash('An error occurred while processing your payment.', 'error')
+    return redirect(url_for('main.orders'))
