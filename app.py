@@ -45,8 +45,7 @@ def load_user(user_id):
 with app.app_context():
     # Make sure to import the models here
     from models import User, Book, Order, OrderItem
-    # Drop all tables and recreate them
-    db.drop_all()
+    # Create tables if they don't exist
     db.create_all()
 
     # Register blueprints
