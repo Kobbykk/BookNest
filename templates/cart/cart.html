@@ -36,7 +36,8 @@
             </tfoot>
         </table>
         <div class="text-end">
-            <a href="#" class="btn btn-primary">Proceed to Checkout</a>
+            <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Continue Shopping</a>
+            <a href="{{ url_for('cart.checkout') }}" class="btn btn-primary">Proceed to Checkout</a>
         </div>
     </div>
     {% else %}

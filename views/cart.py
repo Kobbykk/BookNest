@@ -1,6 +1,9 @@
-from flask import Blueprint, jsonify, render_template, session, request
+from flask import Blueprint, jsonify, render_template, session, request, current_app, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import Book
+from models import Book, Order, OrderItem
+from app import db
+import stripe
+import os
 
 cart = Blueprint('cart', __name__)
 
@@ -53,3 +56,115 @@ def update_cart():
     
     session['cart'] = cart_data
     return jsonify({'success': True})
+
+@cart.route('/cart/checkout')
+@login_required
+def checkout():
+    cart_data = session.get('cart', {})
+    if not cart_data:
+        flash('Your cart is empty.', 'warning')
+        return redirect(url_for('cart.view_cart'))
+    
+    cart_items = []
+    total = 0
+    
+    for book_id, quantity in cart_data.items():
+        book = Book.query.get(int(book_id))
+        if book:
+            item_total = book.price * quantity
+            cart_items.append({
+                'book': book,
+                'quantity': quantity,
+                'total': item_total
+            })
+            total += item_total
+    
+    stripe_publishable_key = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+    return render_template('cart/checkout.html', 
+                         cart_items=cart_items, 
+                         total=total,
+                         stripe_publishable_key=stripe_publishable_key)
+
+@cart.route('/cart/process-payment', methods=['POST'])
+@login_required
+def process_payment():
+    stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+    cart_data = session.get('cart', {})
+    
+    if not cart_data:
+        return jsonify({'success': False, 'error': 'Cart is empty'})
+    
+    total = 0
+    order_items = []
+    
+    # Calculate total and prepare order items
+    for book_id, quantity in cart_data.items():
+        book = Book.query.get(int(book_id))
+        if book:
+            item_total = book.price * quantity
+            total += item_total
+            order_items.append({
+                'book': book,
+                'quantity': quantity,
+                'price': book.price
+            })
+    
+    try:
+        # Create payment intent
+        payment_method_id = request.json.get('payment_method_id')
+        if not payment_method_id:
+            return jsonify({'success': False, 'error': 'Payment method not provided'})
+        
+        # Amount needs to be in cents
+        amount = int(total * 100)
+        
+        # Create and confirm the payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency='usd',
+            payment_method=payment_method_id,
+            confirmation_method='manual',
+            confirm=True,
+        )
+        
+        if intent.status == 'succeeded':
+            # Create order
+            order = Order(user_id=current_user.id, total=total, status='pending')
+            db.session.add(order)
+            db.session.flush()  # Get the order ID
+            
+            # Create order items
+            for item in order_items:
+                order_item = OrderItem(
+                    order_id=order.id,
+                    book_id=item['book'].id,
+                    quantity=item['quantity'],
+                    price=item['price']
+                )
+                db.session.add(order_item)
+            
+            # Clear the cart
+            session['cart'] = {}
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'redirect_url': url_for('main.orders')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Payment failed'
+            })
+            
+    except stripe.error.StripeError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+    except Exception as e:
+        current_app.logger.error(f'Payment processing error: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while processing your payment'
+        })
