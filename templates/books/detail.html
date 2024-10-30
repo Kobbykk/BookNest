@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">
+            <img src="{{ book.image_url }}" class="img-fluid" alt="{{ book.title }}">
+        </div>
+        <div class="col-md-8">
+            <h2>{{ book.title }}</h2>
+            <p class="lead">By {{ book.author }}</p>
+            <p class="h4">${{ "%.2f"|format(book.price) }}</p>
+            <p>{{ book.description }}</p>
+            {% if current_user.is_authenticated %}
+                <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
+            {% endif %}
+            <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Back to Books</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

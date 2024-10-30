@@ -1,0 +1,25 @@
+/* Additional custom styles */
+.card-img-top {
+    height: 300px;
+    object-fit: cover;
+}
+
+.cart-quantity {
+    width: 70px;
+}
+
+.order-status {
+    font-weight: bold;
+}
+
+.status-pending {
+    color: var(--bs-warning);
+}
+
+.status-completed {
+    color: var(--bs-success);
+}
+
+.status-shipped {
+    color: var(--bs-info);
+}
