@@ -36,6 +36,7 @@ class ReviewForm(FlaskForm):
 class CategoryForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired(), Length(min=2, max=50)])
     description = TextAreaField('Description')
+    display_order = IntegerField('Display Order', validators=[DataRequired(), NumberRange(min=1)], default=1)
 
 class DiscountForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
