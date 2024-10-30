@@ -11,7 +11,11 @@ cart = Blueprint('cart', __name__)
 def get_cart_count():
     try:
         cart_data = session.get('cart', {})
-        count = sum(int(val) for val in cart_data.values()) if cart_data and cart_data.values() else 0
+        # Initialize count as 0
+        count = 0
+        # Only sum if cart exists and has items
+        if cart_data and len(cart_data) > 0:
+            count = sum(int(val) for val in cart_data.values())
         return jsonify({'count': count, 'success': True})
     except Exception as e:
         current_app.logger.error(f'Error getting cart count: {str(e)}')
@@ -45,6 +49,7 @@ def add_to_cart():
         book_id = str(request.json['book_id'])
         quantity = int(request.json['quantity'])
         
+        # Validate book exists
         book = Book.query.get(int(book_id))
         if not book:
             return jsonify({'success': False, 'error': 'Book not found'}), 404
@@ -136,22 +141,27 @@ def process_payment():
                     'price': book.price
                 })
         
+        # Create order first to get the order ID
+        order = Order(user_id=current_user.id, total=total, status='pending')
+        db.session.add(order)
+        db.session.flush()  # This will assign an ID to the order
+
         # Amount needs to be in cents
         amount = int(total * 100)
         
-        # Create payment intent
+        # Create payment intent with return_url and allow_redirects
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency='usd',
-            payment_method_types=['card'],
-            confirmation_method='manual',
-            confirm=False,
-            description=f'Order for {current_user.email}'
+            automatic_payment_methods={
+                'enabled': True,
+                'allow_redirects': 'always'
+            },
+            metadata={
+                'order_id': str(order.id)
+            },
+            return_url=url_for('cart.payment_success', _external=True)
         )
-        
-        # Create order
-        order = Order(user_id=current_user.id, total=total, status='pending')
-        db.session.add(order)
         
         # Create order items and update stock
         for item in order_items:

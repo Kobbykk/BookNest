@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Move Stripe.js script to the very top -->
 <script src="https://js.stripe.com/v3/"></script>
 
 <div class="container">
@@ -46,11 +47,38 @@
             <div class="card">
                 <div class="card-body">
                     <h3 class="card-title">Payment Information</h3>
-                    <form id="payment-form">
-                        <div id="payment-element" class="mb-3">
-                            <!-- Stripe Elements will be inserted here -->
+                    <form id="payment-form" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Cardholder Name</label>
+                            <input type="text" class="form-control" id="name" required>
                         </div>
-                        <div id="payment-message" class="alert alert-danger d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Billing Address</label>
+                            <input type="text" class="form-control" id="address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" class="form-control" id="city" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label for="state" class="form-label">State</label>
+                                <input type="text" class="form-control" id="state" required>
+                            </div>
+                            <div class="col">
+                                <label for="zip" class="form-label">ZIP Code</label>
+                                <input type="text" class="form-control" id="zip" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="card-element" class="form-label">Credit or Debit Card</label>
+                            <div id="card-element"></div>
+                            <div id="card-errors" class="invalid-feedback" style="display: none;"></div>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
                             <span id="button-text">Pay ${{ "%.2f"|format(total) }}</span>
                             <span id="spinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
@@ -63,102 +91,117 @@
 </div>
 
 <style>
-#payment-element {
+#card-element {
     padding: 16px;
     border: 1px solid #495057;
     border-radius: 4px;
     background-color: #2b3035;
+    color: white;
 }
 
-#payment-message {
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
+.StripeElement {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #495057;
+    border-radius: 4px;
+    background-color: #2b3035;
+    color: white;
+}
+
+.StripeElement--focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.StripeElement--invalid {
+    border-color: #dc3545;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', async function() {
     const stripe = Stripe('{{ stripe_publishable_key }}');
-    let elements;
     
-    try {
-        const response = await fetch('/cart/process-payment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+    const elements = stripe.elements({
+        mode: 'payment',
+        currency: 'usd',
+        appearance: {
+            theme: 'night',
+            variables: {
+                colorPrimary: '#0d6efd',
+                colorBackground: '#2b3035',
+                colorText: '#ffffff',
+                colorDanger: '#dc3545',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+                spacingUnit: '2px',
+                borderRadius: '4px'
             }
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.error);
         }
+    });
 
-        const clientSecret = data.client_secret;
-        elements = stripe.elements({
-            clientSecret,
-            appearance: {
-                theme: 'night',
-                variables: {
-                    colorPrimary: '#0d6efd',
-                    colorBackground: '#2b3035',
-                    colorText: '#ffffff',
-                    colorDanger: '#dc3545',
-                    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                    spacingUnit: '2px',
-                    borderRadius: '4px'
+    // Create and mount the Payment Element
+    const paymentElement = elements.create('payment', {
+        layout: {
+            type: 'tabs',
+            defaultCollapsed: false
+        }
+    });
+    paymentElement.mount('#card-element');
+
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    const buttonText = document.getElementById('button-text');
+    const spinner = document.getElementById('spinner');
+    const errorDisplay = document.getElementById('card-errors');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setLoading(true);
+
+        try {
+            // Create PaymentIntent
+            const response = await fetch('/cart/process-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 }
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error);
             }
-        });
 
-        const paymentElement = elements.create('payment');
-        paymentElement.mount('#payment-element');
+            // Confirm the PaymentIntent
+            const result = await stripe.confirmPayment({
+                elements,
+                clientSecret: data.client_secret,
+                confirmParams: {
+                    return_url: window.location.origin + '/payment/success',
+                },
+                redirect: 'if_required'
+            });
 
-        const form = document.getElementById('payment-form');
-        const submitButton = document.getElementById('submit-button');
-        const buttonText = document.getElementById('button-text');
-        const spinner = document.getElementById('spinner');
-        const messageDiv = document.getElementById('payment-message');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            setLoading(true);
-
-            try {
-                const {error} = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: window.location.origin + '/payment/success',
-                    }
-                });
-
-                if (error) {
-                    showMessage(error.message);
-                    setLoading(false);
-                }
-                // Payment confirmation will handle the redirect
-            } catch (e) {
-                showMessage('An unexpected error occurred.');
-                setLoading(false);
+            if (result.error) {
+                throw new Error(result.error.message);
             }
-        });
 
-        function setLoading(isLoading) {
-            submitButton.disabled = isLoading;
-            buttonText.textContent = isLoading ? 'Processing...' : 'Pay ${{ "%.2f"|format(total) }}';
-            spinner.classList.toggle('d-none', !isLoading);
+        } catch (error) {
+            showError(error.message);
+            setLoading(false);
         }
+    });
 
-        function showMessage(messageText) {
-            messageDiv.textContent = messageText;
-            messageDiv.classList.remove('d-none');
-        }
+    function setLoading(isLoading) {
+        submitButton.disabled = isLoading;
+        buttonText.textContent = isLoading ? 'Processing...' : `Pay ${{ "%.2f"|format(total) }}`;
+        spinner.classList.toggle('d-none', !isLoading);
+    }
 
-    } catch (error) {
-        console.error('Error:', error);
-        const messageDiv = document.getElementById('payment-message');
-        messageDiv.textContent = error.message;
-        messageDiv.classList.remove('d-none');
+    function showError(message) {
+        errorDisplay.textContent = message;
+        errorDisplay.style.display = 'block';
     }
 });
 </script>
