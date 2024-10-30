@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, FloatField, TextAreaField, IntegerField
+from wtforms import StringField, PasswordField, FloatField, TextAreaField, IntegerField, SelectField
 from wtforms.validators import DataRequired, Email, Length, NumberRange
 
 class LoginForm(FlaskForm):
@@ -18,6 +18,13 @@ class BookForm(FlaskForm):
     description = TextAreaField('Description')
     image_url = StringField('Image URL')
     stock = IntegerField('Stock', validators=[DataRequired(), NumberRange(min=0)])
+    category = SelectField('Category', choices=[
+        ('Programming', 'Programming'),
+        ('Data Science', 'Data Science'),
+        ('Web Development', 'Web Development'),
+        ('Database', 'Database'),
+        ('General', 'General')
+    ], validators=[DataRequired()])
 
 class ReviewForm(FlaskForm):
     rating = IntegerField('Rating', validators=[DataRequired(), NumberRange(min=1, max=5)])
