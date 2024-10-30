@@ -1,7 +1,18 @@
 from app import app, db
-from models import Book
+from models import Book, Category
 
 def seed_books():
+    # First ensure categories exist
+    categories = ['Programming', 'Data Science', 'Web Development', 'Database']
+    for cat_name in categories:
+        if not Category.query.filter_by(name=cat_name).first():
+            category = Category(
+                name=cat_name,
+                display_order=categories.index(cat_name) + 1
+            )
+            db.session.add(category)
+    db.session.commit()
+    
     # Sample books with realistic data and categories
     books = [
         {
@@ -62,7 +73,7 @@ def seed_books():
         
         # Commit the changes
         db.session.commit()
-        print("Sample books have been added to the database.")
+        print("Sample books and categories have been added to the database.")
 
 if __name__ == "__main__":
     seed_books()

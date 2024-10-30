@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
-from models import Book, Order, Review, OrderItem
+from models import Book, Order, Review, OrderItem, Category
 from forms import ReviewForm
 from app import db
 from collections import Counter
@@ -60,8 +60,8 @@ def index():
     search_query = request.args.get('search', '').strip()
     category = request.args.get('category', 'All')
     
-    # Get all unique categories for the filter dropdown
-    categories = ['All'] + [cat[0] for cat in db.session.query(Book.category).distinct().order_by(Book.category)]
+    # Get all categories from the Category model
+    categories = ['All'] + [cat.name for cat in Category.query.order_by(Category.display_order).all()]
     
     # Build the query
     query = Book.query

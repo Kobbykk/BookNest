@@ -19,7 +19,7 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category = db.Column(db.String(50))  # Changed to string field for simpler category management
+    category = db.Column(db.String(50), db.ForeignKey('category.name'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True)
     discounts = db.relationship('BookDiscount', backref='book', lazy=True)
@@ -46,6 +46,7 @@ class Category(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.Text)
     display_order = db.Column(db.Integer, default=0)
+    books = db.relationship('Book', backref='category_ref', lazy=True)
 
 class Discount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
