@@ -292,6 +292,7 @@ dependencies = [
     { name = "flask-wtf" },
     { name = "oauthlib" },
     { name = "psycopg2-binary" },
+    { name = "werkzeug" },
 ]
 
 [package.metadata]
@@ -303,6 +304,7 @@ requires-dist = [
     { name = "flask-wtf", specifier = ">=1.2.2" },
     { name = "oauthlib", specifier = ">=3.2.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "werkzeug", specifier = ">=3.0.6" },
 ]
 
 [[package]]
