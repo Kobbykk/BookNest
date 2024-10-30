@@ -56,123 +56,116 @@
 .navbar-brand {
     font-weight: 700;
     letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
-.navbar-brand svg {
-    transition: transform var(--transition-speed);
-}
-
-.navbar-brand:hover svg {
-    transform: rotate(-10deg);
-}
-
-.nav-link {
-    position: relative;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-}
-
-.nav-link::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 2px;
-    bottom: 0;
-    left: 50%;
-    background: linear-gradient(90deg, var(--bs-primary), var(--bs-info));
-    transition: all var(--transition-speed);
-}
-
-.nav-link:hover::after {
-    width: 80%;
-    left: 10%;
-}
-
-/* Dropdown menu styles */
+/* Admin panel specific styles */
 .dropdown-menu {
     background-color: #2b3035;
-    border-color: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 0.5rem 0;
 }
 
 .dropdown-item {
-    color: #fff;
+    color: #ffffff;
+    font-size: 0.9rem;
+    padding: 0.5rem 1.5rem;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
 }
 
 .dropdown-item:hover {
     background-color: #0d6efd;
-    color: #fff;
+    color: #ffffff;
 }
 
-/* Enhanced form controls */
-.form-control {
-    padding: 0.75rem 1rem;
-    border-width: 2px;
-    border-radius: 8px;
-    background: rgba(var(--bs-dark-rgb), 0.8);
+.nav-link.dropdown-toggle {
+    font-weight: 500;
+    letter-spacing: 0.5px;
 }
 
-.form-control:focus {
-    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
-    border-color: var(--bs-primary);
+/* Table enhancements */
+.table {
+    margin-bottom: 0;
 }
 
-/* Status badges with gradients */
+.table th {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    border-top: none;
+    background: rgba(var(--bs-dark-rgb), 0.5);
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Status badges */
+.badge {
+    padding: 0.5em 1em;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
 .status-pending {
-    background: linear-gradient(45deg, var(--bs-warning), #ffc107);
+    background-color: var(--bs-warning);
     color: var(--bs-dark);
-    padding: 0.25em 1em;
-    border-radius: 50px;
-}
-
-.status-completed {
-    background: linear-gradient(45deg, var(--bs-success), #00ff95);
-    color: var(--bs-dark);
-    padding: 0.25em 1em;
-    border-radius: 50px;
 }
 
 .status-shipped {
-    background: linear-gradient(45deg, var(--bs-info), #00d4ff);
+    background-color: var(--bs-info);
     color: var(--bs-dark);
-    padding: 0.25em 1em;
-    border-radius: 50px;
 }
 
-/* Book detail enhancements */
-.book-detail-img {
-    max-height: 500px;
-    width: auto;
-    margin: 0 auto;
-    display: block;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+.status-completed {
+    background-color: var(--bs-success);
+    color: var(--bs-dark);
 }
 
-/* Footer improvements */
-footer {
-    background: linear-gradient(180deg, 
-        rgba(var(--bs-dark-rgb), 0.8),
-        rgba(var(--bs-dark-rgb), 0.95)
-    ) !important;
-    backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+/* Form controls */
+.form-control {
+    background-color: rgba(var(--bs-dark-rgb), 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--bs-light);
+}
+
+.form-control:focus {
+    background-color: rgba(var(--bs-dark-rgb), 0.9);
+    border-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Bulk operations form */
+#bulk-update-form {
+    background: rgba(var(--bs-dark-rgb), 0.5);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Modal styling */
+.modal-content {
+    background-color: var(--bs-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .card-img-top {
-        height: 200px;
-    }
-    
-    .navbar {
-        padding: 0.5rem 0;
-    }
-
     .btn {
         padding: 0.4rem 1.2rem;
         font-size: 0.9rem;
+    }
+    
+    .table-responsive {
+        margin: 0 -1rem;
     }
 }
