@@ -11,8 +11,11 @@ cart = Blueprint('cart', __name__)
 def get_cart_count():
     try:
         cart_data = session.get('cart', {})
-        # Only count items if cart_data exists and has items
-        count = sum(int(val) for val in cart_data.values()) if cart_data and cart_data.values() else 0
+        # Initialize count as 0
+        count = 0
+        # Only sum if cart exists and has items
+        if cart_data and len(cart_data) > 0:
+            count = sum(int(val) for val in cart_data.values())
         return jsonify({'count': count, 'success': True})
     except Exception as e:
         current_app.logger.error(f'Error getting cart count: {str(e)}')
