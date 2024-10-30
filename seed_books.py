@@ -2,7 +2,7 @@ from app import app, db
 from models import Book
 
 def seed_books():
-    # Sample books with realistic data
+    # Sample books with realistic data and categories
     books = [
         {
             "title": "The Art of Programming",
@@ -10,7 +10,8 @@ def seed_books():
             "price": 49.99,
             "description": "A comprehensive guide to software craftsmanship, covering best practices, design patterns, and coding principles that help developers write better code.",
             "image_url": "https://images.unsplash.com/photo-1532012197267-da84d127e765",
-            "stock": 25
+            "stock": 25,
+            "category": "Programming"
         },
         {
             "title": "Data Science Fundamentals",
@@ -18,7 +19,8 @@ def seed_books():
             "price": 39.99,
             "description": "Learn the essential concepts of data science, from statistical analysis to machine learning, with practical examples and real-world applications.",
             "image_url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e",
-            "stock": 30
+            "stock": 30,
+            "category": "Data Science"
         },
         {
             "title": "Web Development Mastery",
@@ -26,7 +28,8 @@ def seed_books():
             "price": 45.99,
             "description": "Master modern web development technologies and frameworks. Covers everything from HTML5 and CSS3 to React and Node.js.",
             "image_url": "https://images.unsplash.com/photo-1532012197267-da84d127e765",
-            "stock": 20
+            "stock": 20,
+            "category": "Web Development"
         },
         {
             "title": "Python for Beginners",
@@ -34,7 +37,8 @@ def seed_books():
             "price": 29.99,
             "description": "Start your programming journey with Python. This book covers all the basics you need to know to become proficient in Python programming.",
             "image_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c",
-            "stock": 40
+            "stock": 40,
+            "category": "Programming"
         },
         {
             "title": "Database Design Patterns",
@@ -42,7 +46,8 @@ def seed_books():
             "price": 54.99,
             "description": "Learn advanced database design patterns and optimization techniques. Perfect for database administrators and software architects.",
             "image_url": "https://images.unsplash.com/photo-1532012197267-da84d127e765",
-            "stock": 15
+            "stock": 15,
+            "category": "Database"
         }
     ]
 

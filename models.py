@@ -18,6 +18,7 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
+    category = db.Column(db.String(50), nullable=False, default='General')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Order(db.Model):
