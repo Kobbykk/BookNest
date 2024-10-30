@@ -19,12 +19,15 @@ class BookForm(FlaskForm):
     description = TextAreaField('Description')
     image_url = StringField('Image URL')
     stock = IntegerField('Stock', validators=[DataRequired(), NumberRange(min=0)])
-    category_id = SelectField('Category', coerce=int, validators=[DataRequired()])
+    category_id = SelectField('Category', validators=[DataRequired()])
 
     def __init__(self, *args, **kwargs):
         super(BookForm, self).__init__(*args, **kwargs)
+        from app import db
         from models import Category
-        self.category_id.choices = [(c.id, c.name) for c in Category.query.all()]
+        # Get unique category names from the database
+        categories = [cat[0] for cat in db.session.query(Category.name).distinct()]
+        self.category_id.choices = [(cat, cat) for cat in categories]
 
 class ReviewForm(FlaskForm):
     rating = IntegerField('Rating', validators=[DataRequired(), NumberRange(min=1, max=5)])
@@ -45,5 +48,7 @@ class DiscountForm(FlaskForm):
 
     def __init__(self, *args, **kwargs):
         super(DiscountForm, self).__init__(*args, **kwargs)
+        from app import db
         from models import Category
-        self.books.choices = [(c.id, c.name) for c in Category.query.all()]
+        categories = [cat[0] for cat in db.session.query(Category.name).distinct()]
+        self.books.choices = [(cat, cat) for cat in categories]

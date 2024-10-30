@@ -58,6 +58,65 @@ def toggle_admin(user_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+@admin.route('/book/add', methods=['GET', 'POST'])
+@login_required
+def add_book():
+    if not current_user.is_admin:
+        flash('Access denied.')
+        return redirect(url_for('main.index'))
+    
+    form = BookForm()
+    if form.validate_on_submit():
+        try:
+            book = Book(
+                title=form.title.data,
+                author=form.author.data,
+                price=form.price.data,
+                description=form.description.data,
+                image_url=form.image_url.data,
+                stock=form.stock.data,
+                category=form.category_id.data
+            )
+            db.session.add(book)
+            db.session.commit()
+            flash('Book added successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            current_app.logger.error(f'Error adding book: {str(e)}')
+            flash('Error adding book.', 'danger')
+            db.session.rollback()
+    
+    return render_template('admin/book_form.html', form=form, title='Add Book')
+
+@admin.route('/book/<int:book_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_book(book_id):
+    if not current_user.is_admin:
+        flash('Access denied.')
+        return redirect(url_for('main.index'))
+    
+    book = Book.query.get_or_404(book_id)
+    form = BookForm(obj=book)
+    
+    if form.validate_on_submit():
+        try:
+            book.title = form.title.data
+            book.author = form.author.data
+            book.price = form.price.data
+            book.description = form.description.data
+            book.image_url = form.image_url.data
+            book.stock = form.stock.data
+            book.category = form.category_id.data
+            db.session.commit()
+            flash('Book updated successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            current_app.logger.error(f'Error updating book: {str(e)}')
+            flash('Error updating book.', 'danger')
+            db.session.rollback()
+    
+    return render_template('admin/book_form.html', form=form, title='Edit Book')
+
 @admin.route('/manage_categories', methods=['GET', 'POST'])
 @login_required
 def manage_categories():
@@ -133,5 +192,3 @@ def delete_category(category_id):
         current_app.logger.error(f'Error deleting category: {str(e)}')
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
-
-# Rest of the existing routes...
