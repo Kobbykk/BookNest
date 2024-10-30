@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container">
-    <div class="row">
+    <div class="row mb-4">
         <div class="col-md-4">
             <img src="{{ book.image_url }}" class="img-fluid" alt="{{ book.title }}">
         </div>
@@ -10,11 +10,71 @@
             <h2>{{ book.title }}</h2>
             <p class="lead">By {{ book.author }}</p>
             <p class="h4">${{ "%.2f"|format(book.price) }}</p>
+            <div class="mb-3">
+                <span class="h5">Average Rating: {{ "%.1f"|format(book.average_rating) }}/5.0</span>
+                <small class="text-muted">({{ book.reviews|length }} reviews)</small>
+            </div>
             <p>{{ book.description }}</p>
             {% if current_user.is_authenticated %}
                 <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
             {% endif %}
             <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Back to Books</a>
+        </div>
+    </div>
+
+    <!-- Reviews Section -->
+    <div class="row">
+        <div class="col-md-8">
+            <h3 class="mb-4">Reviews</h3>
+            
+            {% if current_user.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4 class="card-title">Write a Review</h4>
+                    <form method="POST" action="{{ url_for('main.add_review', book_id=book.id) }}">
+                        {{ form.csrf_token }}
+                        <div class="mb-3">
+                            {{ form.rating.label(class="form-label") }}
+                            {{ form.rating(class="form-control", type="number", min="1", max="5") }}
+                            {% if form.rating.errors %}
+                                {% for error in form.rating.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.comment.label(class="form-label") }}
+                            {{ form.comment(class="form-control", rows="3") }}
+                            {% if form.comment.errors %}
+                                {% for error in form.comment.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Review</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if book.reviews %}
+                {% for review in book.reviews|sort(attribute='created_at', reverse=True) %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h5 class="card-title">{{ review.user.username }}</h5>
+                            <div class="text-muted">
+                                Rating: {{ review.rating }}/5
+                                <small class="ms-2">{{ review.created_at.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                        </div>
+                        <p class="card-text">{{ review.comment }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">No reviews yet. Be the first to review this book!</p>
+            {% endif %}
         </div>
     </div>
 </div>

@@ -18,3 +18,7 @@ class BookForm(FlaskForm):
     description = TextAreaField('Description')
     image_url = StringField('Image URL')
     stock = IntegerField('Stock', validators=[DataRequired(), NumberRange(min=0)])
+
+class ReviewForm(FlaskForm):
+    rating = IntegerField('Rating', validators=[DataRequired(), NumberRange(min=1, max=5)])
+    comment = TextAreaField('Review', validators=[DataRequired(), Length(min=10, max=500)])
