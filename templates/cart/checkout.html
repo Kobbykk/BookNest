@@ -76,7 +76,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="card-element" class="form-label">Credit or Debit Card</label>
-                            <div id="card-element" class="form-control" style="padding: 12px; min-height: 44px; background-color: #2b3035;"></div>
+                            <div id="card-element"></div>
                             <div id="card-errors" class="invalid-feedback" style="display: none;"></div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100" id="submit-button">
@@ -92,34 +92,35 @@
 
 <style>
 #card-element {
-    background-color: #2b3035 !important;
+    padding: 16px;
     border: 1px solid #495057;
     border-radius: 4px;
-    padding: 12px;
-    min-height: 44px;
-}
-
-#card-element.StripeElement--focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
-
-#card-element.StripeElement--invalid {
-    border-color: #dc3545;
+    background-color: #2b3035;
+    color: white;
 }
 
 .StripeElement {
-    width: 100%;
+    display: block;
+    margin: 10px 0 20px 0;
+    max-width: 100%;
+    padding: 10px 14px;
+    font-size: 1em;
+    box-shadow: rgba(50, 50, 93, 0.14902) 0px 1px 3px, rgba(0, 0, 0, 0.0196078) 0px 1px 0px;
+    border-radius: 4px;
+    background: #2b3035;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Stripe
+    // Initialize Stripe right away with publishable key
     const stripe = Stripe('{{ stripe_publishable_key }}');
     
-    // Create Elements instance
+    // Initialize Elements
     const elements = stripe.elements({
+        mode: 'payment',
+        currency: 'usd',
+        amount: {{ total * 100 }},
         appearance: {
             theme: 'night',
             variables: {
@@ -134,98 +135,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Create and mount card element
-    const cardElement = elements.create('card', {
-        style: {
-            base: {
-                color: '#ffffff',
-                backgroundColor: '#2b3035',
-                '::placeholder': {
-                    color: '#aab7c4'
-                },
-                fontSize: '16px',
-            },
-            invalid: {
-                color: '#dc3545',
-                iconColor: '#dc3545'
-            }
-        }
-    });
+    // Create and mount the Payment Element
+    const paymentElement = elements.create('payment');
+    paymentElement.mount('#card-element');
 
-    // Mount card element
-    cardElement.mount('#card-element');
-
+    // Update form submission handler to use new Elements
     const form = document.getElementById('payment-form');
     const submitButton = document.getElementById('submit-button');
     const buttonText = document.getElementById('button-text');
     const spinner = document.getElementById('spinner');
     const errorDisplay = document.getElementById('card-errors');
 
-    // Handle real-time validation errors
-    cardElement.on('change', (event) => {
-        if (event.error) {
-            showError(event.error.message);
-        } else {
-            clearError();
-        }
-    });
-
-    // Handle form submission
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         setLoading(true);
 
-        const billingDetails = {
-            name: document.getElementById('name').value,
-            email: document.getElementById('email').value,
-            address: {
-                line1: document.getElementById('address').value,
-                city: document.getElementById('city').value,
-                state: document.getElementById('state').value,
-                postal_code: document.getElementById('zip').value,
+        const {error} = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: window.location.origin + '/payment/success',
             }
-        };
+        });
 
-        try {
-            const {paymentMethod, error} = await stripe.createPaymentMethod({
-                type: 'card',
-                card: cardElement,
-                billing_details: billingDetails,
-            });
-
-            if (error) {
-                showError(error.message);
-                setLoading(false);
-                return;
-            }
-
-            const response = await fetch('/cart/process-payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    payment_method_id: paymentMethod.id,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-
-            const result = await response.json();
-
-            if (result.requires_action) {
-                // Handle redirect for authentication
-                window.location.href = result.return_url;
-                return;
-            } else if (result.success) {
-                window.location.href = result.redirect_url;
-            } else {
-                throw new Error(result.error || 'Payment processing failed');
-            }
-        } catch (error) {
-            showError(error.message || 'An error occurred during payment processing');
+        if (error) {
+            showError(error.message);
             setLoading(false);
         }
     });
@@ -239,11 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function showError(message) {
         errorDisplay.textContent = message;
         errorDisplay.style.display = 'block';
-    }
-
-    function clearError() {
-        errorDisplay.textContent = '';
-        errorDisplay.style.display = 'none';
     }
 });
 </script>

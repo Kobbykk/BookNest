@@ -141,66 +141,44 @@ def process_payment():
                     'price': book.price
                 })
         
-        # Create payment intent
-        payment_method_id = request.json.get('payment_method_id')
-        if not payment_method_id:
-            return jsonify({'success': False, 'error': 'Payment method not provided'})
-        
         # Amount needs to be in cents
         amount = int(total * 100)
         
-        # Create and confirm the payment intent with return_url
+        # Create payment intent with automatic_payment_methods only
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency='usd',
-            payment_method=payment_method_id,
-            confirmation_method='manual',
-            confirm=True,
-            return_url=url_for('cart.payment_success', _external=True),
             automatic_payment_methods={
                 'enabled': True,
-                'allow_redirects': 'always'
-            }
+            },
+            return_url=url_for('cart.payment_success', _external=True)
         )
         
-        # Handle the payment status
-        if intent.status == 'requires_action':
-            return jsonify({
-                'requires_action': True,
-                'payment_intent_client_secret': intent.client_secret,
-                'return_url': url_for('cart.payment_success', _external=True)
-            })
-        elif intent.status == 'succeeded':
-            # Create order
-            order = Order(user_id=current_user.id, total=total, status='pending')
-            db.session.add(order)
-            db.session.flush()
-            
-            # Create order items and update stock
-            for item in order_items:
-                order_item = OrderItem(
-                    order_id=order.id,
-                    book_id=item['book'].id,
-                    quantity=item['quantity'],
-                    price=item['price']
-                )
-                # Update book stock
-                item['book'].stock -= item['quantity']
-                db.session.add(order_item)
-            
-            # Clear the cart
-            session['cart'] = {}
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'redirect_url': url_for('main.orders')
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Payment failed'
-            })
+        # Create order
+        order = Order(user_id=current_user.id, total=total, status='pending')
+        db.session.add(order)
+        db.session.flush()
+        
+        # Create order items and update stock
+        for item in order_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                book_id=item['book'].id,
+                quantity=item['quantity'],
+                price=item['price']
+            )
+            # Update book stock
+            item['book'].stock -= item['quantity']
+            db.session.add(order_item)
+        
+        # Clear the cart
+        session['cart'] = {}
+        db.session.commit()
+        
+        return jsonify({
+            'client_secret': intent.client_secret,
+            'success': True
+        })
             
     except stripe.error.StripeError as e:
         current_app.logger.error(f'Stripe error: {str(e)}')
@@ -224,7 +202,6 @@ def payment_success():
         try:
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             if intent.status == 'succeeded':
-                # Process the order...
                 flash('Payment successful!', 'success')
             else:
                 flash('Payment was not completed.', 'error')
