@@ -27,6 +27,37 @@ def dashboard():
                          categories=categories,
                          discounts=discounts)
 
+@admin.route('/manage_users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        flash('Access denied.')
+        return redirect(url_for('main.index'))
+    
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@admin.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
+@login_required
+def toggle_admin(user_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied'})
+    
+    if current_user.id == user_id:
+        return jsonify({'success': False, 'error': 'Cannot modify your own admin status'})
+    
+    user = User.query.get_or_404(user_id)
+    try:
+        user.is_admin = not user.is_admin
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'is_admin': user.is_admin
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @admin.route('/manage_categories', methods=['GET', 'POST'])
 @login_required
 def manage_categories():
