@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                 });
 
+                if (response.status === 401) {
+                    // User not authenticated, redirect to login
+                    window.location.href = '/login';
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error('Failed to add item to cart');
                 }
