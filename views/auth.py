@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import User
 from forms import LoginForm, RegisterForm
 from app import db
+from utils.activity_logger import log_user_activity
 
 auth = Blueprint('auth', __name__)
 
@@ -21,6 +22,7 @@ def login():
             if check_password_hash(user.password_hash, form.password.data):
                 current_app.logger.info(f"Password verification successful for user {user.id}")
                 login_user(user)
+                log_user_activity(user, 'login', 'User logged in successfully')
                 flash('Login successful!', 'success')
                 return redirect(url_for('main.index'))
             else:

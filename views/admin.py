@@ -1,10 +1,11 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
-from models import Book, Order, OrderItem, User, Category, Discount, BookDiscount
+from models import Book, Order, OrderItem, User, Category, Discount, BookDiscount, UserActivity, Review
 from forms import BookForm, CategoryForm, DiscountForm
 from app import db
 from utils.email import send_order_status_email
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import desc
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -56,6 +57,66 @@ def toggle_admin(user_id):
         })
     except Exception as e:
         db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/users/<int:user_id>/profile')
+@login_required
+def get_user_profile(user_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied'})
+    
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Get recent activities
+        activities = UserActivity.query.filter_by(user_id=user_id)\
+            .order_by(UserActivity.timestamp.desc())\
+            .limit(5)\
+            .all()
+        
+        # Get recent orders
+        orders = Order.query.filter_by(user_id=user_id)\
+            .order_by(Order.created_at.desc())\
+            .limit(5)\
+            .all()
+        
+        # Get recent reviews with book titles
+        reviews = db.session.query(Review, Book.title)\
+            .join(Book)\
+            .filter(Review.user_id == user_id)\
+            .order_by(Review.created_at.desc())\
+            .limit(5)\
+            .all()
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'created_at': user.created_at.isoformat(),
+                'is_admin': user.is_admin
+            },
+            'activities': [{
+                'activity_type': activity.activity_type,
+                'description': activity.description,
+                'timestamp': activity.timestamp.isoformat()
+            } for activity in activities],
+            'orders': [{
+                'id': order.id,
+                'total': order.total,
+                'status': order.status,
+                'created_at': order.created_at.isoformat()
+            } for order in orders],
+            'reviews': [{
+                'book_title': book_title,
+                'rating': review.rating,
+                'comment': review.comment,
+                'created_at': review.created_at.isoformat()
+            } for review, book_title in reviews]
+        })
+    except Exception as e:
+        current_app.logger.error(f'Error fetching user profile: {str(e)}')
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/book/add', methods=['GET', 'POST'])
@@ -192,3 +253,47 @@ def delete_category(category_id):
         current_app.logger.error(f'Error deleting category: {str(e)}')
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/user-activities')
+@login_required
+def user_activities():
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('main.index'))
+    
+    # Get filter parameters
+    user_id = request.args.get('user_id', type=int)
+    activity_type = request.args.get('activity_type')
+    days = request.args.get('days', type=int, default=7)
+    
+    # Base query
+    query = UserActivity.query
+    
+    # Apply filters
+    if user_id:
+        query = query.filter(UserActivity.user_id == user_id)
+    if activity_type:
+        query = query.filter(UserActivity.activity_type == activity_type)
+    if days:
+        since_date = datetime.utcnow() - timedelta(days=days)
+        query = query.filter(UserActivity.timestamp >= since_date)
+    
+    # Get activities with pagination
+    page = request.args.get('page', 1, type=int)
+    activities = query.order_by(desc(UserActivity.timestamp)).paginate(
+        page=page, per_page=20, error_out=False)
+    
+    # Get unique activity types for filter dropdown
+    activity_types = db.session.query(UserActivity.activity_type).distinct().all()
+    activity_types = [t[0] for t in activity_types]
+    
+    # Get users for filter dropdown
+    users = User.query.all()
+    
+    return render_template('admin/user_activities.html',
+                         activities=activities,
+                         activity_types=activity_types,
+                         users=users,
+                         selected_user_id=user_id,
+                         selected_activity_type=activity_type,
+                         selected_days=days)

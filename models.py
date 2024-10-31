@@ -100,3 +100,13 @@ class CartItem(db.Model):
     
     book = db.relationship('Book')
     user = db.relationship('User')
+
+class UserActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    activity_type = db.Column(db.String(50), nullable=False)  # login, logout, purchase, etc.
+    description = db.Column(db.String(255))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(45))  # IPv6 addresses can be up to 45 characters
+    
+    user = db.relationship('User', backref=db.backref('activities', lazy=True))

@@ -28,12 +28,17 @@
                                 </span>
                             </td>
                             <td>
-                                {% if user.id != current_user.id %}
-                                <button class="btn btn-sm btn-{{ 'danger' if user.is_admin else 'success' }} toggle-admin"
-                                        data-user-id="{{ user.id }}">
-                                    {{ 'Remove Admin' if user.is_admin else 'Make Admin' }}
-                                </button>
-                                {% endif %}
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-info view-profile" data-user-id="{{ user.id }}">
+                                        <i class="bi bi-person-lines-fill me-1"></i>Profile
+                                    </button>
+                                    {% if user.id != current_user.id %}
+                                    <button class="btn btn-sm btn-{{ 'danger' if user.is_admin else 'success' }} toggle-admin"
+                                            data-user-id="{{ user.id }}">
+                                        {{ 'Remove Admin' if user.is_admin else 'Make Admin' }}
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -44,8 +49,59 @@
     </div>
 </div>
 
+<!-- User Profile Modal -->
+<div class="modal fade" id="userProfileModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- User Info Section -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Basic Information</h6>
+                        <div id="userInfo"></div>
+                    </div>
+                </div>
+
+                <!-- Activity History -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Recent Activity</h6>
+                        <div id="activityHistory" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+
+                <!-- Orders -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Recent Orders</h6>
+                        <div id="orderHistory" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+
+                <!-- Reviews -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Recent Reviews</h6>
+                        <div id="reviewHistory" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const profileModal = new bootstrap.Modal(document.getElementById('userProfileModal'));
+    
+    // Handle admin toggle
     document.querySelectorAll('.toggle-admin').forEach(button => {
         button.addEventListener('click', async function() {
             const userId = this.dataset.userId;
@@ -68,6 +124,84 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.textContent = data.is_admin ? 'Remove Admin' : 'Make Admin';
                 
                 showToast('Success', 'Admin status updated successfully!', 'success');
+            } catch (error) {
+                showToast('Error', error.message, 'danger');
+            }
+        });
+    });
+
+    // Handle view profile
+    document.querySelectorAll('.view-profile').forEach(button => {
+        button.addEventListener('click', async function() {
+            const userId = this.dataset.userId;
+            try {
+                const response = await fetch(`/admin/users/${userId}/profile`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error);
+                }
+
+                // Update user info
+                document.getElementById('userInfo').innerHTML = `
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Username</dt>
+                        <dd class="col-sm-9">${data.user.username}</dd>
+                        
+                        <dt class="col-sm-3">Email</dt>
+                        <dd class="col-sm-9">${data.user.email}</dd>
+                        
+                        <dt class="col-sm-3">Member Since</dt>
+                        <dd class="col-sm-9">${new Date(data.user.created_at).toLocaleDateString()}</dd>
+                        
+                        <dt class="col-sm-3">Status</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-${data.user.is_admin ? 'success' : 'secondary'}">
+                                ${data.user.is_admin ? 'Admin' : 'User'}
+                            </span>
+                        </dd>
+                    </dl>
+                `;
+
+                // Update activity history
+                const activityList = document.getElementById('activityHistory');
+                activityList.innerHTML = data.activities.length ? data.activities.map(activity => `
+                    <div class="list-group-item bg-transparent">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${activity.activity_type}</h6>
+                            <small class="text-muted">${new Date(activity.timestamp).toLocaleString()}</small>
+                        </div>
+                        <p class="mb-1">${activity.description}</p>
+                    </div>
+                `).join('') : '<p class="text-muted mb-0">No recent activity</p>';
+
+                // Update order history
+                const orderList = document.getElementById('orderHistory');
+                orderList.innerHTML = data.orders.length ? data.orders.map(order => `
+                    <div class="list-group-item bg-transparent">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Order #${order.id}</h6>
+                            <small class="text-muted">${new Date(order.created_at).toLocaleString()}</small>
+                        </div>
+                        <p class="mb-1">Total: $${order.total.toFixed(2)}</p>
+                        <small class="text-muted">Status: ${order.status}</small>
+                    </div>
+                `).join('') : '<p class="text-muted mb-0">No orders yet</p>';
+
+                // Update review history
+                const reviewList = document.getElementById('reviewHistory');
+                reviewList.innerHTML = data.reviews.length ? data.reviews.map(review => `
+                    <div class="list-group-item bg-transparent">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${review.book_title}</h6>
+                            <small class="text-muted">${new Date(review.created_at).toLocaleString()}</small>
+                        </div>
+                        <p class="mb-1">${review.comment}</p>
+                        <small class="text-muted">Rating: ${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</small>
+                    </div>
+                `).join('') : '<p class="text-muted mb-0">No reviews yet</p>';
+
+                profileModal.show();
             } catch (error) {
                 showToast('Error', error.message, 'danger');
             }
