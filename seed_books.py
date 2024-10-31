@@ -1,5 +1,5 @@
 from app import app, db
-from models import Book, Category
+from models import Book, Category, CartItem, OrderItem, Review, BookDiscount
 
 def seed_books():
     categories = {
@@ -90,10 +90,15 @@ def seed_books():
     db.session.commit()
     print("Categories created successfully")
 
-    # Clear existing books
+    # Clear existing data in proper order
+    print("Clearing existing data...")
+    CartItem.query.delete()
+    BookDiscount.query.delete()
+    Review.query.delete()
+    OrderItem.query.delete()
     Book.query.delete()
     db.session.commit()
-    print("Existing books cleared")
+    print("Existing data cleared")
     
     # Add new books
     for book_data in books:

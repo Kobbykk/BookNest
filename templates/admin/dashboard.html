@@ -106,13 +106,12 @@
                         <td>${{ "%.2f"|format(order.total) }}</td>
                         <td><span class="status-{{ order.status.lower() }}">{{ order.status }}</span></td>
                         <td>
-                            <form method="POST" action="{{ url_for('admin.update_order_status', order_id=order.id) }}" class="d-inline">
-                                <select name="status" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
-                                    <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
-                                    <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Shipped</option>
-                                    <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
-                                </select>
-                            </form>
+                            <select name="status" class="form-select form-select-sm status-select" data-order-id="{{ order.id }}">
+                                <option value="in_process" {% if order.status == 'in_process' %}selected{% endif %}>In Process</option>
+                                <option value="payment_pending" {% if order.status == 'payment_pending' %}selected{% endif %}>Payment Pending</option>
+                                <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="approved" {% if order.status == 'approved' %}selected{% endif %}>Approved</option>
+                            </select>
                         </td>
                     </tr>
                     {% endfor %}
@@ -234,9 +233,37 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Error', error.message, 'danger');
         }
     });
+
+    // Handle order status updates
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', async function() {
+            const orderId = this.dataset.orderId;
+            const newStatus = this.value;
+            
+            try {
+                const response = await fetch(`/admin/orders/${orderId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Success', 'Order status updated successfully!', 'success');
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message, 'danger');
+                this.value = this.defaultValue;
+            }
+        });
+    });
 });
 
-// Toast notification function (reusing from cart.js)
+// Toast notification function
 function showToast(title, message, type = 'info') {
     const toastContainer = document.createElement('div');
     toastContainer.style.position = 'fixed';

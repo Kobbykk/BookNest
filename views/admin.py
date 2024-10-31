@@ -16,7 +16,7 @@ def dashboard():
         flash('Access denied.')
         return redirect(url_for('main.index'))
     books = Book.query.all()
-    orders = Order.query.all()
+    orders = Order.query.order_by(Order.created_at.desc()).all()
     users = User.query.all()
     categories = [cat[0] for cat in db.session.query(Category.name).distinct()]
     discounts = Discount.query.all()
@@ -27,6 +27,30 @@ def dashboard():
                          users=users,
                          categories=categories,
                          discounts=discounts)
+
+@admin.route('/orders/<int:order_id>/status', methods=['POST'])
+@login_required
+def update_order_status(order_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied'})
+    
+    try:
+        order = Order.query.get_or_404(order_id)
+        new_status = request.json.get('status')
+        
+        if new_status not in Order.STATUS_CHOICES:
+            return jsonify({'success': False, 'error': 'Invalid status value'})
+        
+        order.status = new_status
+        db.session.commit()
+        
+        # Send email notification
+        send_order_status_email(order.user.email, order.id, new_status, order.items)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/manage_users')
 @login_required
@@ -68,19 +92,16 @@ def get_user_profile(user_id):
     try:
         user = User.query.get_or_404(user_id)
         
-        # Get recent activities
         activities = UserActivity.query.filter_by(user_id=user_id)\
             .order_by(UserActivity.timestamp.desc())\
             .limit(5)\
             .all()
         
-        # Get recent orders
         orders = Order.query.filter_by(user_id=user_id)\
             .order_by(Order.created_at.desc())\
             .limit(5)\
             .all()
         
-        # Get recent reviews with book titles
         reviews = db.session.query(Review, Book.title)\
             .join(Book)\
             .filter(Review.user_id == user_id)\
@@ -261,15 +282,12 @@ def user_activities():
         flash('Access denied.', 'danger')
         return redirect(url_for('main.index'))
     
-    # Get filter parameters
     user_id = request.args.get('user_id', type=int)
     activity_type = request.args.get('activity_type')
     days = request.args.get('days', type=int, default=7)
     
-    # Base query
     query = UserActivity.query
     
-    # Apply filters
     if user_id:
         query = query.filter(UserActivity.user_id == user_id)
     if activity_type:
@@ -278,16 +296,13 @@ def user_activities():
         since_date = datetime.utcnow() - timedelta(days=days)
         query = query.filter(UserActivity.timestamp >= since_date)
     
-    # Get activities with pagination
     page = request.args.get('page', 1, type=int)
     activities = query.order_by(desc(UserActivity.timestamp)).paginate(
         page=page, per_page=20, error_out=False)
     
-    # Get unique activity types for filter dropdown
     activity_types = db.session.query(UserActivity.activity_type).distinct().all()
     activity_types = [t[0] for t in activity_types]
     
-    # Get users for filter dropdown
     users = User.query.all()
     
     return render_template('admin/user_activities.html',
