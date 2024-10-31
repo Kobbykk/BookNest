@@ -7,16 +7,23 @@ from utils.email import send_order_status_email
 from datetime import datetime, timedelta
 from sqlalchemy import desc
 from werkzeug.utils import secure_filename
+from utils.activity_logger import log_user_activity
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
+def admin_required(f):
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_admin:
+            flash('Access denied.', 'danger')
+            return redirect(url_for('main.index'))
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
 @admin.route('/dashboard')
-@login_required
+@admin_required
 def dashboard():
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('main.index'))
-        
     books = Book.query.all()
     orders = Order.query.order_by(Order.created_at.desc()).all()
     users = User.query.all()
@@ -31,12 +38,8 @@ def dashboard():
                          discounts=discounts)
 
 @admin.route('/add_book', methods=['GET', 'POST'])
-@login_required
+@admin_required
 def add_book():
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('main.index'))
-    
     form = BookForm()
     if form.validate_on_submit():
         try:
@@ -61,12 +64,8 @@ def add_book():
     return render_template('admin/book_form.html', form=form)
 
 @admin.route('/edit_book/<int:book_id>', methods=['GET', 'POST'])
-@login_required
+@admin_required
 def edit_book(book_id):
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('main.index'))
-    
     book = Book.query.get_or_404(book_id)
     form = BookForm(obj=book)
     
@@ -91,11 +90,8 @@ def edit_book(book_id):
     return render_template('admin/book_form.html', form=form, book=book)
 
 @admin.route('/delete_book/<int:book_id>', methods=['POST'])
-@login_required
+@admin_required
 def delete_book(book_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     try:
         book = Book.query.get_or_404(book_id)
         db.session.delete(book)
@@ -107,11 +103,8 @@ def delete_book(book_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/update_book_stock', methods=['POST'])
-@login_required
+@admin_required
 def update_book_stock():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     data = request.get_json()
     book_id = data.get('book_id')
     new_stock = data.get('stock')
@@ -130,11 +123,8 @@ def update_book_stock():
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/bulk_update_books', methods=['POST'])
-@login_required
+@admin_required
 def bulk_update_books():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     data = request.get_json()
     action = data.get('action')
     category = data.get('category')
@@ -160,27 +150,22 @@ def bulk_update_books():
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/manage_users')
-@login_required
+@admin_required
 def manage_users():
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('main.index'))
-    
     users = User.query.all()
     return render_template('admin/users.html', users=users)
 
-@admin.route('/toggle_admin/<int:user_id>', methods=['POST'])
-@login_required
+@admin.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
+@admin_required
 def toggle_admin(user_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     try:
         user = User.query.get_or_404(user_id)
         if user.id == current_user.id:
             return jsonify({'success': False, 'error': 'Cannot modify your own admin status'})
             
         user.is_admin = not user.is_admin
+        log_user_activity(current_user, 'admin_toggle', 
+                         f'{"Granted" if user.is_admin else "Revoked"} admin privileges for {user.email}')
         db.session.commit()
         return jsonify({'success': True, 'is_admin': user.is_admin})
     except Exception as e:
@@ -189,11 +174,8 @@ def toggle_admin(user_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/user_profile/<int:user_id>')
-@login_required
+@admin_required
 def get_user_profile(user_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     try:
         user = User.query.get_or_404(user_id)
         activities = UserActivity.query.filter_by(user_id=user_id).order_by(UserActivity.timestamp.desc()).limit(5).all()
@@ -231,12 +213,8 @@ def get_user_profile(user_id):
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/manage_categories', methods=['GET', 'POST'])
-@login_required
+@admin_required
 def manage_categories():
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('main.index'))
-    
     form = CategoryForm()
     if form.validate_on_submit():
         try:
@@ -257,11 +235,8 @@ def manage_categories():
     return render_template('admin/categories.html', categories=categories, form=form)
 
 @admin.route('/update_order_status/<int:order_id>', methods=['POST'])
-@login_required
+@admin_required
 def update_order_status(order_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'})
-    
     data = request.get_json()
     new_status = data.get('status')
     
