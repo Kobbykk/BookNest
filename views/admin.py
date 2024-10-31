@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import User, Book, Order, Category, Review, UserActivity
-from forms import UserForm
+from forms import UserForm, CategoryForm
 from app import db
 from utils.activity_logger import log_user_activity
 from werkzeug.security import generate_password_hash
@@ -145,5 +145,31 @@ def user_activity(user_id):
                           .order_by(UserActivity.timestamp.desc())\
                           .limit(50).all()
     return render_template('admin/user_activities.html', user=user, activities=activities)
+
+@admin.route('/manage_categories')
+@permission_required('manage_categories')
+def manage_categories():
+    categories = Category.query.order_by(Category.display_order).all()
+    form = CategoryForm()
+    return render_template('admin/categories.html', categories=categories, form=form)
+
+@admin.route('/add_category', methods=['POST'])
+@permission_required('manage_categories')
+def add_category():
+    form = CategoryForm()
+    if form.validate_on_submit():
+        try:
+            category = Category(
+                name=form.name.data,
+                description=form.description.data,
+                display_order=form.display_order.data
+            )
+            db.session.add(category)
+            db.session.commit()
+            flash('Category added successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding category.', 'danger')
+    return redirect(url_for('admin.manage_categories'))
 
 # ... rest of the admin routes ...
