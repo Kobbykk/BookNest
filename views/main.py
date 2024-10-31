@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
-from models import Book, Order, Review, OrderItem, Category
-from forms import ReviewForm
+from models import Book, Order, Review, OrderItem, Category, User
+from forms import ReviewForm, ProfileUpdateForm
+from werkzeug.security import check_password_hash, generate_password_hash
 from app import db
 from collections import Counter
 
@@ -92,6 +93,66 @@ def index():
                          current_category=category,
                          search_query=search_query,
                          recommendations=recommendations)
+
+@main.route('/profile', methods=['GET'])
+@login_required
+def profile():
+    form = ProfileUpdateForm()
+    form.username.data = current_user.username
+    form.email.data = current_user.email
+    
+    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    reviews = Review.query.filter_by(user_id=current_user.id).order_by(Review.created_at.desc()).all()
+    
+    return render_template('profile/profile.html', 
+                         form=form,
+                         orders=orders,
+                         reviews=reviews)
+
+@main.route('/profile/update', methods=['POST'])
+@login_required
+def update_profile():
+    form = ProfileUpdateForm()
+    if form.validate_on_submit():
+        if not check_password_hash(current_user.password_hash, form.current_password.data):
+            flash('Current password is incorrect.', 'danger')
+            return redirect(url_for('main.profile'))
+        
+        # Check if username is taken
+        if form.username.data != current_user.username:
+            user = User.query.filter_by(username=form.username.data).first()
+            if user:
+                flash('Username is already taken.', 'danger')
+                return redirect(url_for('main.profile'))
+        
+        # Check if email is taken
+        if form.email.data.lower() != current_user.email.lower():
+            user = User.query.filter(User.email.ilike(form.email.data)).first()
+            if user:
+                flash('Email is already registered.', 'danger')
+                return redirect(url_for('main.profile'))
+        
+        try:
+            current_user.username = form.username.data
+            current_user.email = form.email.data.lower()
+            
+            # Update password if provided
+            if form.new_password.data:
+                current_user.password_hash = generate_password_hash(form.new_password.data)
+            
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+        except Exception as e:
+            current_app.logger.error(f'Error updating profile: {str(e)}')
+            db.session.rollback()
+            flash('An error occurred while updating your profile.', 'danger')
+            
+        return redirect(url_for('main.profile'))
+    
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f'{field}: {error}', 'danger')
+    return redirect(url_for('main.profile'))
 
 @main.route('/book/<int:book_id>', methods=['GET'])
 def book_detail(book_id):
