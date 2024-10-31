@@ -4,6 +4,7 @@ from models import User, Book, Order, Category, Review, UserActivity
 from forms import UserForm, CategoryForm
 from app import db
 from utils.activity_logger import log_user_activity
+from utils.email import send_order_status_email
 from werkzeug.security import generate_password_hash
 from functools import wraps
 
@@ -19,6 +20,17 @@ def permission_required(permission):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+@admin.route('/dashboard')
+@permission_required('manage_books')
+def dashboard():
+    books = Book.query.all()
+    orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
+    categories = Category.query.all()
+    return render_template('admin/dashboard.html', 
+                         books=books,
+                         orders=orders,
+                         categories=categories)
 
 @admin.route('/manage_users')
 @permission_required('manage_users')
@@ -146,6 +158,49 @@ def user_activity(user_id):
                           .limit(50).all()
     return render_template('admin/user_activities.html', user=user, activities=activities)
 
+@admin.route('/manage_orders')
+@permission_required('manage_orders')
+def manage_orders():
+    # Get filter parameters
+    status_filter = request.args.get('status', '')
+    search_query = request.args.get('search', '')
+    
+    # Build the query
+    query = Order.query
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    if search_query:
+        query = query.join(User).filter(
+            (Order.id.ilike(f'%{search_query}%')) |
+            (User.email.ilike(f'%{search_query}%'))
+        )
+    
+    orders = query.order_by(Order.created_at.desc()).all()
+    return render_template('admin/manage_orders.html', orders=orders)
+
+@admin.route('/order_details/<int:order_id>')
+@permission_required('manage_orders')
+def order_details(order_id):
+    order = Order.query.get_or_404(order_id)
+    return render_template('admin/order_details.html', order=order)
+
+@admin.route('/update_order_status/<int:order_id>', methods=['POST'])
+@permission_required('manage_orders')
+def update_order_status(order_id):
+    try:
+        data = request.get_json()
+        order = Order.query.get_or_404(order_id)
+        order.status = data['status']
+        db.session.commit()
+        
+        # Send email notification
+        send_order_status_email(order.user.email, order.id, order.status, order.items)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @admin.route('/manage_categories')
 @permission_required('manage_categories')
 def manage_categories():
@@ -171,5 +226,3 @@ def add_category():
             db.session.rollback()
             flash('Error adding category.', 'danger')
     return redirect(url_for('admin.manage_categories'))
-
-# ... rest of the admin routes ...
