@@ -18,3 +18,4 @@ stripe
 python-dotenv
 email-validator
 requests
+pillow

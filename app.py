@@ -52,18 +52,18 @@ def create_app():
         return User.query.get(int(user_id))
     
     # Register blueprints
-    from views.auth import auth
-    from views.main import main
-    from views.admin import admin as admin_blueprint
-    from views.cart import cart
-    
-    app.register_blueprint(auth)
-    app.register_blueprint(main)
-    app.register_blueprint(admin_blueprint)
-    app.register_blueprint(cart)
-    
-    # Initialize database
     with app.app_context():
+        from views.auth import auth
+        from views.main import main
+        from views.admin import admin
+        from views.cart import cart
+        
+        app.register_blueprint(auth)
+        app.register_blueprint(main)
+        app.register_blueprint(admin)
+        app.register_blueprint(cart)
+        
+        # Initialize database
         from models import User, Book, Order, OrderItem, Category, Review, Discount, BookDiscount, CartItem
         db.create_all()
         

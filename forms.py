@@ -31,11 +31,10 @@ class BookForm(FlaskForm):
 
     def __init__(self, *args, **kwargs):
         super(BookForm, self).__init__(*args, **kwargs)
-        from app import db
         from models import Category
-        # Get unique category names from the database
-        categories = [cat[0] for cat in db.session.query(Category.name).distinct()]
-        self.category_id.choices = [(cat, cat) for cat in categories]
+        # Get all categories from the database
+        categories = Category.query.order_by(Category.name).all()
+        self.category_id.choices = [(cat.name, cat.name) for cat in categories]
 
 class ReviewForm(FlaskForm):
     rating = IntegerField('Rating', validators=[DataRequired(), NumberRange(min=1, max=5)])

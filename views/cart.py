@@ -6,231 +6,254 @@ import stripe
 import os
 from sqlalchemy import func
 from utils.email import send_order_status_email
+from datetime import datetime
 
 cart = Blueprint('cart', __name__)
 
-@cart.route('/cart/count')
-def get_cart_count():
-    try:
-        if not current_user.is_authenticated:
-            return jsonify({'count': 0, 'success': True})
-            
-        count = CartItem.query.filter_by(user_id=current_user.id).with_entities(
-            func.sum(CartItem.quantity)).scalar() or 0
-        return jsonify({'count': count, 'success': True})
-    except Exception as e:
-        current_app.logger.error(f'Error getting cart count: {str(e)}')
-        return jsonify({'count': 0, 'success': False, 'error': str(e)})
-
-@cart.route('/cart')
+@cart.route('/view_cart')
 @login_required
 def view_cart():
-    cart_items = []
-    total = 0
-    
-    items = CartItem.query.filter_by(user_id=current_user.id).all()
-    
-    for item in items:
-        item_total = item.book.price * item.quantity
-        cart_items.append({
-            'book': item.book,
-            'quantity': item.quantity,
-            'total': item_total
-        })
-        total += item_total
-    
+    cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+    total = sum(item.book.price * item.quantity for item in cart_items)
     return render_template('cart/cart.html', cart_items=cart_items, total=total)
 
-@cart.route('/cart/add', methods=['POST'])
+@cart.route('/add', methods=['POST'])
 @login_required
 def add_to_cart():
+    data = request.get_json()
+    book_id = data.get('book_id')
+    quantity = data.get('quantity', 1)
+    
+    if not book_id:
+        return jsonify({'error': 'Book ID is required'}), 400
+        
+    book = Book.query.get_or_404(book_id)
+    if book.stock < quantity:
+        return jsonify({'error': 'Insufficient stock'}), 400
+        
+    cart_item = CartItem.query.filter_by(user_id=current_user.id, book_id=book_id).first()
+    
     try:
-        book_id = int(request.json['book_id'])
-        quantity = int(request.json['quantity'])
-        
-        # Validate book exists
-        book = Book.query.get(book_id)
-        if not book:
-            return jsonify({'success': False, 'error': 'Book not found'}), 404
-        
-        # Check if item already in cart
-        cart_item = CartItem.query.filter_by(
-            user_id=current_user.id,
-            book_id=book_id
-        ).first()
-        
         if cart_item:
             cart_item.quantity += quantity
         else:
-            cart_item = CartItem(
-                user_id=current_user.id,
-                book_id=book_id,
-                quantity=quantity
-            )
+            cart_item = CartItem(user_id=current_user.id, book_id=book_id, quantity=quantity)
             db.session.add(cart_item)
-        
-        db.session.commit()
-        
-        # Get updated cart count
-        count = CartItem.query.filter_by(user_id=current_user.id).with_entities(
-            func.sum(CartItem.quantity)).scalar() or 0
             
-        return jsonify({'success': True, 'cart_count': count})
+        db.session.commit()
+        cart_count = CartItem.query.filter_by(user_id=current_user.id).count()
+        return jsonify({'success': True, 'cart_count': cart_count})
+        
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f'Error adding to cart: {str(e)}')
-        return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
+        return jsonify({'error': 'Failed to add item to cart'}), 500
 
-@cart.route('/cart/update', methods=['POST'])
+@cart.route('/update', methods=['POST'])
 @login_required
 def update_cart():
+    data = request.get_json()
+    book_id = data.get('book_id')
+    quantity = data.get('quantity', 0)
+    
+    if not book_id:
+        return jsonify({'error': 'Book ID is required'}), 400
+        
+    cart_item = CartItem.query.filter_by(user_id=current_user.id, book_id=book_id).first()
+    if not cart_item:
+        return jsonify({'error': 'Item not found in cart'}), 404
+        
     try:
-        book_id = int(request.json['book_id'])
-        quantity = int(request.json['quantity'])
-        
-        cart_item = CartItem.query.filter_by(
-            user_id=current_user.id,
-            book_id=book_id
-        ).first()
-        
-        if not cart_item:
-            return jsonify({'success': False, 'error': 'Item not found in cart'}), 404
-        
-        if quantity > 0:
-            cart_item.quantity = quantity
-        else:
+        if quantity <= 0:
             db.session.delete(cart_item)
-        
-        db.session.commit()
-        
-        count = CartItem.query.filter_by(user_id=current_user.id).with_entities(
-            func.sum(CartItem.quantity)).scalar() or 0
+        else:
+            if cart_item.book.stock < quantity:
+                return jsonify({'error': 'Insufficient stock'}), 400
+            cart_item.quantity = quantity
             
-        return jsonify({'success': True, 'cart_count': count})
+        db.session.commit()
+        cart_count = CartItem.query.filter_by(user_id=current_user.id).count()
+        return jsonify({'success': True, 'cart_count': cart_count})
+        
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f'Error updating cart: {str(e)}')
-        return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
+        return jsonify({'error': 'Failed to update cart'}), 500
 
-@cart.route('/cart/checkout', methods=['GET'])
+@cart.route('/count')
+@login_required
+def get_cart_count():
+    try:
+        count = CartItem.query.filter_by(user_id=current_user.id).count()
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        current_app.logger.error(f'Error getting cart count: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@cart.route('/checkout')
 @login_required
 def checkout():
-    cart_items = []
-    total = 0
-    
-    items = CartItem.query.filter_by(user_id=current_user.id).all()
-    if not items:
+    cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+    if not cart_items:
         flash('Your cart is empty.', 'warning')
-        return redirect(url_for('cart.view_cart'))
-    
-    for item in items:
-        item_total = item.book.price * item.quantity
-        cart_items.append({
-            'book': item.book,
-            'quantity': item.quantity,
-            'total': item_total
-        })
-        total += item_total
-    
+        return redirect(url_for('main.index'))
+        
+    total = sum(item.book.price * item.quantity for item in cart_items)
     stripe_publishable_key = os.environ.get('STRIPE_PUBLISHABLE_KEY')
-    return render_template('cart/checkout.html', 
-                         cart_items=cart_items, 
+    
+    if not stripe_publishable_key:
+        flash('Payment system is not configured.', 'error')
+        return redirect(url_for('cart.view_cart'))
+        
+    return render_template('cart/checkout.html',
+                         cart_items=cart_items,
                          total=total,
                          stripe_publishable_key=stripe_publishable_key)
 
-@cart.route('/cart/process-payment', methods=['POST'])
+@cart.route('/create-payment-intent', methods=['POST'])
 @login_required
-def process_payment():
+def create_payment_intent():
     try:
         stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        if not stripe.api_key:
+            current_app.logger.error('Stripe secret key not configured')
+            return jsonify({'error': 'Payment system is not configured'}), 500
+            
         cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
-        
         if not cart_items:
-            return jsonify({'success': False, 'error': 'Cart is empty'})
+            return jsonify({'error': 'Cart is empty'}), 400
         
-        total = 0
-        order_items = []
-        
-        for cart_item in cart_items:
-            if cart_item.book.stock < cart_item.quantity:
-                return jsonify({'success': False, 'error': f'Insufficient stock for {cart_item.book.title}'})
-            item_total = cart_item.book.price * cart_item.quantity
-            total += item_total
-            order_items.append({
-                'book': cart_item.book,
-                'quantity': cart_item.quantity,
-                'price': cart_item.book.price
-            })
-        
-        # Create order
-        order = Order(user_id=current_user.id, total=total, status='pending')
-        db.session.add(order)
-        db.session.flush()
-        
-        # Amount needs to be in cents
-        amount = int(total * 100)
-        
-        # Create payment intent with return_url and allow_redirects
-        intent = stripe.PaymentIntent.create(
-            amount=amount,
-            currency='usd',
-            automatic_payment_methods={
-                'enabled': True,
-                'allow_redirects': 'always'
-            },
-            metadata={
-                'order_id': str(order.id)
-            },
-            return_url=url_for('cart.payment_success', _external=True)
-        )
-        
-        # Create order items and update stock
-        for item in order_items:
-            order_item = OrderItem(
-                order_id=order.id,
-                book_id=item['book'].id,
-                quantity=item['quantity'],
-                price=item['price']
-            )
-            # Update book stock
-            item['book'].stock -= item['quantity']
-            db.session.add(order_item)
-        
-        # Clear user's cart
-        CartItem.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-        
-        return jsonify({
-            'client_secret': intent.client_secret,
-            'success': True
-        })
+        # Calculate total and validate stock in a transaction
+        try:
+            total = 0
+            with db.session.begin_nested():
+                for item in cart_items:
+                    if item.book.stock < item.quantity:
+                        return jsonify({'error': f'Insufficient stock for {item.book.title}'}), 400
+                    total += item.book.price * item.quantity
+                
+                # Create order first
+                order = Order(
+                    user_id=current_user.id,
+                    total=total,
+                    status='pending',
+                    payment_status='pending'
+                )
+                db.session.add(order)
+                db.session.flush()
+                
+                # Create order items
+                for cart_item in cart_items:
+                    order_item = OrderItem(
+                        order_id=order.id,
+                        book_id=cart_item.book_id,
+                        quantity=cart_item.quantity,
+                        price=cart_item.book.price
+                    )
+                    db.session.add(order_item)
+                
+                # Create payment intent
+                try:
+                    intent = stripe.PaymentIntent.create(
+                        amount=int(total * 100),  # Convert to cents
+                        currency='usd',
+                        metadata={
+                            'order_id': str(order.id),
+                            'user_id': str(current_user.id)
+                        }
+                    )
+                    
+                    # Update order with payment intent
+                    order.payment_intent_id = intent.id
+                    db.session.commit()
+                    
+                    return jsonify({
+                        'clientSecret': intent.client_secret,
+                        'orderId': order.id
+                    })
+                    
+                except stripe.error.StripeError as e:
+                    current_app.logger.error(f'Stripe error: {str(e)}')
+                    db.session.rollback()
+                    return jsonify({'error': str(e)}), 400
+                    
+        except Exception as e:
+            current_app.logger.error(f'Database error: {str(e)}')
+            db.session.rollback()
+            return jsonify({'error': 'Error creating order'}), 500
+            
     except Exception as e:
-        current_app.logger.error(f'Payment processing error: {str(e)}')
-        return jsonify({'success': False, 'error': str(e)})
+        current_app.logger.error(f'Unexpected error: {str(e)}')
+        return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @cart.route('/payment/success')
 @login_required
 def payment_success():
     payment_intent_id = request.args.get('payment_intent')
-    if payment_intent_id:
+    
+    if not payment_intent_id:
+        flash('Invalid payment session.', 'error')
+        return redirect(url_for('cart.checkout'))
+    
+    try:
         stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
-        try:
-            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            if intent.status == 'succeeded':
-                order_id = intent.metadata.get('order_id')
-                if order_id:
-                    order = Order.query.get(order_id)
-                    if order:
-                        order.status = 'completed'
-                        db.session.commit()
-                        # Send email notification
-                        send_order_status_email(
-                            current_user.email,
-                            order.id,
-                            'completed',
-                            order.items
-                        )
+        if not stripe.api_key:
+            flash('Payment system is not configured.', 'error')
+            return redirect(url_for('cart.checkout'))
+            
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        
+        # Find order by payment intent ID
+        order = Order.query.filter_by(payment_intent_id=payment_intent_id).first()
+        if not order:
+            flash('Order not found.', 'error')
+            return redirect(url_for('cart.checkout'))
+        
+        if intent.status == 'succeeded':
+            try:
+                # Update order status
+                order.status = 'completed'
+                order.payment_status = 'paid'
+                order.payment_date = datetime.utcnow()
+                order.payment_method = intent.payment_method_types[0]
+                
+                # Update book stock
+                for item in order.items:
+                    if item.book.stock < item.quantity:
+                        raise ValueError(f'Insufficient stock for {item.book.title}')
+                    item.book.stock -= item.quantity
+                
+                # Clear cart
+                CartItem.query.filter_by(user_id=current_user.id).delete()
+                db.session.commit()
+                
+                # Send confirmation email
+                try:
+                    send_order_status_email(current_user.email, order.id, "completed", order.items)
+                except Exception as e:
+                    current_app.logger.error(f'Error sending confirmation email: {str(e)}')
+                
                 flash('Payment successful! Your order has been confirmed.', 'success')
-            else:
-                flash('Payment was not completed.', 'error')
-        except stripe.error.StripeError as e:
-            flash('An error occurred while processing your payment.', 'error')
-    return redirect(url_for('main.orders'))
+                return redirect(url_for('main.orders'))
+                
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f'Error processing successful payment: {str(e)}')
+                flash('Error processing your order. Please contact support.', 'error')
+                return redirect(url_for('cart.checkout'))
+        else:
+            order.status = 'payment_failed'
+            order.payment_status = 'failed'
+            db.session.commit()
+            
+            flash('Payment was not completed successfully.', 'error')
+            return redirect(url_for('cart.checkout'))
+            
+    except stripe.error.StripeError as e:
+        current_app.logger.error(f'Stripe error in success callback: {str(e)}')
+        flash(f'Payment error: {str(e)}', 'error')
+        return redirect(url_for('cart.checkout'))
+    except Exception as e:
+        current_app.logger.error(f'Error in success callback: {str(e)}')
+        flash('An unexpected error occurred.', 'error')
+        return redirect(url_for('cart.checkout'))

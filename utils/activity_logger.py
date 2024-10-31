@@ -1,4 +1,4 @@
-from flask import request
+from flask import request, current_app
 from models import UserActivity
 from app import db
 
