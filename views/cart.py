@@ -10,6 +10,16 @@ from datetime import datetime
 
 cart = Blueprint('cart', __name__)
 
+@cart.route('/count')
+@login_required
+def get_cart_count():
+    try:
+        count = CartItem.query.filter_by(user_id=current_user.id).count()
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        current_app.logger.error(f'Error getting cart count: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @cart.route('/view_cart')
 @login_required
 def view_cart():
@@ -79,16 +89,6 @@ def update_cart():
         db.session.rollback()
         current_app.logger.error(f'Error updating cart: {str(e)}')
         return jsonify({'error': 'Failed to update cart'}), 500
-
-@cart.route('/count')
-@login_required
-def get_cart_count():
-    try:
-        count = CartItem.query.filter_by(user_id=current_user.id).count()
-        return jsonify({'success': True, 'count': count})
-    except Exception as e:
-        current_app.logger.error(f'Error getting cart count: {str(e)}')
-        return jsonify({'error': str(e)}), 500
 
 @cart.route('/checkout')
 @login_required
