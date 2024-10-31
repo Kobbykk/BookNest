@@ -2,40 +2,53 @@
 
 {% block content %}
 <div class="container">
-    <h2>User Management</h2>
-    <div class="card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>User Management</h2>
+        <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Add New User
+        </a>
+    </div>
+
+    <div class="card">
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Username</th>
                             <th>Email</th>
-                            <th>Admin Status</th>
+                            <th>Role</th>
+                            <th>Created At</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
                         <tr>
-                            <td>{{ user.id }}</td>
                             <td>{{ user.username }}</td>
                             <td>{{ user.email }}</td>
                             <td>
+                                <span class="badge bg-{{ 'primary' if user.role == 'admin' else 'info' if user.role == 'manager' else 'secondary' }}">
+                                    {{ user.role|title }}
+                                </span>
+                            </td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
                                 <span class="badge bg-{{ 'success' if user.is_admin else 'secondary' }}">
-                                    {{ 'Admin' if user.is_admin else 'User' }}
+                                    {{ 'Active' if user.is_admin else 'Regular' }}
                                 </span>
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-info view-profile" data-user-id="{{ user.id }}">
-                                        <i class="bi bi-person-lines-fill me-1"></i>Profile
-                                    </button>
+                                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" 
+                                       class="btn btn-sm btn-secondary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
                                     {% if user.id != current_user.id %}
-                                    <button class="btn btn-sm btn-{{ 'danger' if user.is_admin else 'success' }} toggle-admin"
+                                    <button class="btn btn-sm btn-danger delete-user" 
                                             data-user-id="{{ user.id }}">
-                                        {{ 'Remove Admin' if user.is_admin else 'Make Admin' }}
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                     {% endif %}
                                 </div>
@@ -49,49 +62,20 @@
     </div>
 </div>
 
-<!-- User Profile Modal -->
-<div class="modal fade" id="userProfileModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">User Profile</h5>
+                <h5 class="modal-title">Confirm Delete</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- User Info Section -->
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h6 class="card-subtitle mb-2 text-muted">Basic Information</h6>
-                        <div id="userInfo"></div>
-                    </div>
-                </div>
-
-                <!-- Activity History -->
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h6 class="card-subtitle mb-2 text-muted">Recent Activity</h6>
-                        <div id="activityHistory" class="list-group list-group-flush"></div>
-                    </div>
-                </div>
-
-                <!-- Orders -->
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h6 class="card-subtitle mb-2 text-muted">Recent Orders</h6>
-                        <div id="orderHistory" class="list-group list-group-flush"></div>
-                    </div>
-                </div>
-
-                <!-- Reviews -->
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-subtitle mb-2 text-muted">Recent Reviews</h6>
-                        <div id="reviewHistory" class="list-group list-group-flush"></div>
-                    </div>
-                </div>
+                Are you sure you want to delete this user?
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
             </div>
         </div>
     </div>
@@ -99,114 +83,74 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const profileModal = new bootstrap.Modal(document.getElementById('userProfileModal'));
-    
-    // Handle admin toggle
-    document.querySelectorAll('.toggle-admin').forEach(button => {
-        button.addEventListener('click', async function() {
-            const userId = this.dataset.userId;
-            try {
-                const response = await fetch(`/admin/users/${userId}/toggle-admin`, {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.error);
-                }
-                
-                // Update UI
-                const badge = this.closest('tr').querySelector('.badge');
-                badge.className = `badge bg-${data.is_admin ? 'success' : 'secondary'}`;
-                badge.textContent = data.is_admin ? 'Admin' : 'User';
-                
-                this.className = `btn btn-sm btn-${data.is_admin ? 'danger' : 'success'} toggle-admin`;
-                this.textContent = data.is_admin ? 'Remove Admin' : 'Make Admin';
-                
-                showToast('Success', 'Admin status updated successfully!', 'success');
-            } catch (error) {
-                showToast('Error', error.message, 'danger');
-            }
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    let userToDelete = null;
+
+    // Handle delete button clicks
+    document.querySelectorAll('.delete-user').forEach(button => {
+        button.addEventListener('click', function() {
+            userToDelete = this.dataset.userId;
+            deleteModal.show();
         });
     });
 
-    // Handle view profile
-    document.querySelectorAll('.view-profile').forEach(button => {
-        button.addEventListener('click', async function() {
-            const userId = this.dataset.userId;
-            try {
-                const response = await fetch(`/admin/users/${userId}/profile`);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error);
-                }
-
-                // Update user info
-                document.getElementById('userInfo').innerHTML = `
-                    <dl class="row mb-0">
-                        <dt class="col-sm-3">Username</dt>
-                        <dd class="col-sm-9">${data.user.username}</dd>
-                        
-                        <dt class="col-sm-3">Email</dt>
-                        <dd class="col-sm-9">${data.user.email}</dd>
-                        
-                        <dt class="col-sm-3">Member Since</dt>
-                        <dd class="col-sm-9">${new Date(data.user.created_at).toLocaleDateString()}</dd>
-                        
-                        <dt class="col-sm-3">Status</dt>
-                        <dd class="col-sm-9">
-                            <span class="badge bg-${data.user.is_admin ? 'success' : 'secondary'}">
-                                ${data.user.is_admin ? 'Admin' : 'User'}
-                            </span>
-                        </dd>
-                    </dl>
-                `;
-
-                // Update activity history
-                const activityList = document.getElementById('activityHistory');
-                activityList.innerHTML = data.activities.length ? data.activities.map(activity => `
-                    <div class="list-group-item bg-transparent">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">${activity.activity_type}</h6>
-                            <small class="text-muted">${new Date(activity.timestamp).toLocaleString()}</small>
-                        </div>
-                        <p class="mb-1">${activity.description}</p>
-                    </div>
-                `).join('') : '<p class="text-muted mb-0">No recent activity</p>';
-
-                // Update order history
-                const orderList = document.getElementById('orderHistory');
-                orderList.innerHTML = data.orders.length ? data.orders.map(order => `
-                    <div class="list-group-item bg-transparent">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">Order #${order.id}</h6>
-                            <small class="text-muted">${new Date(order.created_at).toLocaleString()}</small>
-                        </div>
-                        <p class="mb-1">Total: $${order.total.toFixed(2)}</p>
-                        <small class="text-muted">Status: ${order.status}</small>
-                    </div>
-                `).join('') : '<p class="text-muted mb-0">No orders yet</p>';
-
-                // Update review history
-                const reviewList = document.getElementById('reviewHistory');
-                reviewList.innerHTML = data.reviews.length ? data.reviews.map(review => `
-                    <div class="list-group-item bg-transparent">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">${review.book_title}</h6>
-                            <small class="text-muted">${new Date(review.created_at).toLocaleString()}</small>
-                        </div>
-                        <p class="mb-1">${review.comment}</p>
-                        <small class="text-muted">Rating: ${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</small>
-                    </div>
-                `).join('') : '<p class="text-muted mb-0">No reviews yet</p>';
-
-                profileModal.show();
-            } catch (error) {
-                showToast('Error', error.message, 'danger');
+    // Handle delete confirmation
+    document.getElementById('confirmDelete').addEventListener('click', async function() {
+        try {
+            const response = await fetch(`/admin/delete_user/${userToDelete}`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error);
             }
-        });
+            
+            deleteModal.hide();
+            window.location.reload();
+        } catch (error) {
+            showToast('Error', error.message, 'danger');
+        }
     });
 });
+
+// Toast notification function
+function showToast(title, message, type = 'info') {
+    const toastContainer = document.createElement('div');
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.top = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.zIndex = '1050';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    
+    const bsToast = new bootstrap.Toast(toast, {
+        autohide: true,
+        delay: 3000
+    });
+    
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toastContainer);
+    });
+}
 </script>
 {% endblock %}

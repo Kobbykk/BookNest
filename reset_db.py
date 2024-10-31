@@ -1,5 +1,4 @@
 from app import app, db
-from seed_books import seed_books
 from sqlalchemy import text
 
 def reset_database():
@@ -15,25 +14,30 @@ def reset_database():
             """))
             db.session.commit()
             
-            # Drop schema and recreate with proper owner
-            db.session.execute(text('DROP SCHEMA IF EXISTS public CASCADE'))
-            db.session.execute(text('CREATE SCHEMA public'))
-            db.session.execute(text(f'ALTER SCHEMA public OWNER TO {os.environ["PGUSER"]}'))
-            db.session.execute(text('GRANT ALL ON SCHEMA public TO PUBLIC'))
-            db.session.commit()
+            # Drop all tables
+            db.drop_all()
+            print("All tables dropped")
             
-            # Recreate all tables
+            # Create all tables
             db.create_all()
-            print("Tables recreated")
+            print("All tables recreated")
             
-            # Seed sample data
-            try:
-                seed_books()
-                print("Database seeded successfully")
-            except Exception as e:
-                print(f"Error seeding database: {str(e)}")
-                db.session.rollback()
-                
+            # Create admin user
+            from models import User
+            from werkzeug.security import generate_password_hash
+            
+            admin = User(
+                username='admin',
+                email='admin@gmail.com',
+                password_hash=generate_password_hash('Password123'),
+                is_admin=True,
+                role='admin'
+            )
+            
+            db.session.add(admin)
+            db.session.commit()
+            print("Admin user created successfully")
+            
             print("Database reset complete")
             
         except Exception as e:
@@ -42,5 +46,4 @@ def reset_database():
             raise e
 
 if __name__ == "__main__":
-    import os
     reset_database()

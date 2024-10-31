@@ -64,32 +64,10 @@ def create_app():
         app.register_blueprint(cart)
         
         # Initialize database
-        from models import User, Book, Order, OrderItem, Category, Review, Discount, BookDiscount, CartItem
+        from models import User, Book, Order, OrderItem, Category, Review, CartItem, UserActivity
         db.create_all()
         
-        # Create admin user if not exists
-        admin_email = 'admin@gmail.com'
-        admin = User.query.filter(User.email.ilike(admin_email)).first()
-        if not admin:
-            from werkzeug.security import generate_password_hash
-            app.logger.info("Creating new admin user")
-            admin = User(
-                username='admin',
-                email=admin_email.lower(),
-                password_hash=generate_password_hash('Password123'),
-                is_admin=True
-            )
-            try:
-                db.session.add(admin)
-                db.session.commit()
-                app.logger.info("Admin user created successfully")
-            except Exception as e:
-                app.logger.error(f"Error creating admin user: {str(e)}")
-                db.session.rollback()
-        else:
-            app.logger.info("Admin user already exists")
-    
-    return app
+        return app
 
 # Create app instance
 app = create_app()

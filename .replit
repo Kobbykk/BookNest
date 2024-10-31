@@ -23,6 +23,10 @@ args = "Seed Database"
 task = "workflow.run"
 args = "Reset Database"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Migrate Roles"
+
 [[workflows.workflow]]
 name = "Flask Server"
 author = "agent"
@@ -35,7 +39,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "python3 main.py"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -66,8 +70,22 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "python3 reset_db.py"
 
+[[workflows.workflow]]
+name = "Migrate Roles"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 migrate_roles.py"
+
 [deployment]
-run = ["sh", "-c", "python main.py"]
+run = ["sh", "-c", "python3 main.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
