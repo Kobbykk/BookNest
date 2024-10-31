@@ -97,3 +97,46 @@ def update_cart():
         db.session.rollback()
         current_app.logger.error(f'Error updating cart: {str(e)}')
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
+
+@cart.route('/checkout')
+@login_required
+def checkout():
+    cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+    if not cart_items:
+        flash('Your cart is empty.', 'warning')
+        return redirect(url_for('cart.view_cart'))
+    
+    total = sum(item.total for item in cart_items)
+    return render_template('cart/checkout.html', 
+                         cart_items=cart_items,
+                         total=total,
+                         stripe_publishable_key=os.environ.get('STRIPE_PUBLISHABLE_KEY'))
+
+@cart.route('/create-payment-intent', methods=['POST'])
+@login_required
+def create_payment_intent():
+    try:
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        
+        if not cart_items:
+            return jsonify({'success': False, 'error': 'Cart is empty'}), 400
+        
+        total = sum(item.total for item in cart_items)
+        amount = int(total * 100)  # Convert to cents
+        
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency='usd',
+            automatic_payment_methods={
+                'enabled': True,
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'clientSecret': intent.client_secret
+        })
+    except Exception as e:
+        current_app.logger.error(f'Error creating payment intent: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
