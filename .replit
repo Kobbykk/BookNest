@@ -27,6 +27,10 @@ args = "Reset Database"
 task = "workflow.run"
 args = "Migrate Roles"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Seed Books"
+
 [[workflows.workflow]]
 name = "Flask Server"
 author = "agent"
@@ -83,6 +87,20 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 migrate_roles.py"
+
+[[workflows.workflow]]
+name = "Seed Books"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 seed_books.py"
 
 [deployment]
 run = ["sh", "-c", "python3 main.py"]

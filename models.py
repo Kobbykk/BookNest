@@ -57,6 +57,12 @@ class Book(db.Model):
     cart_items = db.relationship('CartItem', backref='book', lazy=True, cascade='all, delete-orphan')
     order_items = db.relationship('OrderItem', backref='book', lazy=True)
 
+    @property
+    def average_rating(self):
+        if not self.reviews:
+            return 0
+        return db.session.query(func.avg(Review.rating)).filter(Review.book_id == self.id).scalar() or 0
+
 class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)

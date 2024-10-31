@@ -23,8 +23,22 @@ def permission_required(permission):
 @admin.route('/manage_users')
 @permission_required('manage_users')
 def manage_users():
-    users = User.query.all()
-    return render_template('admin/users.html', users=users)
+    # Get role filter from query parameters
+    role_filter = request.args.get('role', '')
+    search_query = request.args.get('search', '')
+    
+    # Build the query
+    query = User.query
+    if role_filter:
+        query = query.filter_by(role=role_filter)
+    if search_query:
+        query = query.filter(
+            (User.username.ilike(f'%{search_query}%')) |
+            (User.email.ilike(f'%{search_query}%'))
+        )
+    
+    users = query.order_by(User.created_at.desc()).all()
+    return render_template('admin/users.html', users=users, roles=User.ROLES)
 
 @admin.route('/add_user', methods=['GET', 'POST'])
 @permission_required('manage_users')
@@ -73,6 +87,11 @@ def edit_user(user_id):
                 flash('Email already registered.', 'danger')
                 return render_template('admin/user_form.html', form=form, user=user)
             
+            # Prevent changing own role from admin
+            if user.id == current_user.id and user.role == 'admin' and form.role.data != 'admin':
+                flash('You cannot remove your own admin role.', 'danger')
+                return render_template('admin/user_form.html', form=form, user=user)
+            
             user.username = form.username.data
             user.email = form.email.data.lower()
             if form.password.data:
@@ -102,6 +121,11 @@ def delete_user(user_id):
         if user.id == current_user.id:
             return jsonify({'success': False, 'error': 'Cannot delete your own account'})
         
+        if user.role == 'admin':
+            admin_count = User.query.filter_by(role='admin').count()
+            if admin_count <= 1:
+                return jsonify({'success': False, 'error': 'Cannot delete the last admin user'})
+        
         db.session.delete(user)
         db.session.commit()
         
@@ -112,5 +136,14 @@ def delete_user(user_id):
         current_app.logger.error(f'Error deleting user: {str(e)}')
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/user_activity/<int:user_id>')
+@permission_required('manage_users')
+def user_activity(user_id):
+    user = User.query.get_or_404(user_id)
+    activities = UserActivity.query.filter_by(user_id=user_id)\
+                          .order_by(UserActivity.timestamp.desc())\
+                          .limit(50).all()
+    return render_template('admin/user_activities.html', user=user, activities=activities)
 
 # ... rest of the admin routes ...
