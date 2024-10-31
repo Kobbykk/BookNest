@@ -39,6 +39,7 @@
                             <th>Date</th>
                             <th>Total</th>
                             <th>Status</th>
+                            <th>Shipping Info</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -58,11 +59,19 @@
                                 </span>
                             </td>
                             <td>
+                                {% if order.tracking_number %}
+                                <small class="d-block">{{ order.carrier or 'N/A' }}</small>
+                                <small class="d-block text-muted">{{ order.tracking_number }}</small>
+                                {% else %}
+                                <span class="text-muted">Not shipped</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-info view-order" data-order-id="{{ order.id }}"
-                                            title="View Details">
+                                    <a href="{{ url_for('admin.order_details', order_id=order.id) }}" 
+                                       class="btn btn-sm btn-info" title="View Details">
                                         <i class="bi bi-eye"></i>
-                                    </button>
+                                    </a>
                                     <select class="form-select form-select-sm status-select" 
                                             style="width: auto;"
                                             data-order-id="{{ order.id }}">
@@ -82,28 +91,8 @@
     </div>
 </div>
 
-<!-- Order Details Modal -->
-<div class="modal fade" id="orderDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Order Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="orderDetails"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const orderModal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
-    
     // Handle status updates
     document.querySelectorAll('.status-select').forEach(select => {
         select.addEventListener('change', async function() {
@@ -129,91 +118,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update badge color
                 const badge = this.closest('tr').querySelector('.badge');
                 badge.className = `badge bg-${newStatus === 'completed' ? 'success' : 
-                                               newStatus === 'processing' ? 'warning' :
-                                               newStatus === 'cancelled' ? 'danger' : 'secondary'}`;
+                                              newStatus === 'processing' ? 'warning' :
+                                              newStatus === 'cancelled' ? 'danger' : 'secondary'}`;
                 badge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
                 
             } catch (error) {
                 showToast('Error', error.message, 'danger');
                 this.value = this.defaultValue;
-            }
-        });
-    });
-
-    // Handle view order details
-    document.querySelectorAll('.view-order').forEach(button => {
-        button.addEventListener('click', async function() {
-            const orderId = this.dataset.orderId;
-            try {
-                const response = await fetch(`/admin/order_details/${orderId}`);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error);
-                }
-
-                // Populate modal with order details
-                document.getElementById('orderDetails').innerHTML = `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">Order Information</h6>
-                            <dl class="row mb-0">
-                                <dt class="col-sm-3">Order ID</dt>
-                                <dd class="col-sm-9">#${data.order.id}</dd>
-                                
-                                <dt class="col-sm-3">Customer</dt>
-                                <dd class="col-sm-9">${data.order.user_email}</dd>
-                                
-                                <dt class="col-sm-3">Date</dt>
-                                <dd class="col-sm-9">${new Date(data.order.created_at).toLocaleString()}</dd>
-                                
-                                <dt class="col-sm-3">Status</dt>
-                                <dd class="col-sm-9">
-                                    <span class="badge bg-${data.order.status === 'completed' ? 'success' : 
-                                                        data.order.status === 'processing' ? 'warning' :
-                                                        data.order.status === 'cancelled' ? 'danger' : 'secondary'}">
-                                        ${data.order.status.charAt(0).toUpperCase() + data.order.status.slice(1)}
-                                    </span>
-                                </dd>
-                                
-                                <dt class="col-sm-3">Total</dt>
-                                <dd class="col-sm-9">$${data.order.total.toFixed(2)}</dd>
-                            </dl>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">Order Items</h6>
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Book</th>
-                                            <th>Quantity</th>
-                                            <th>Price</th>
-                                            <th>Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${data.items.map(item => `
-                                            <tr>
-                                                <td>${item.book_title}</td>
-                                                <td>${item.quantity}</td>
-                                                <td>$${item.price.toFixed(2)}</td>
-                                                <td>$${(item.price * item.quantity).toFixed(2)}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                orderModal.show();
-            } catch (error) {
-                showToast('Error', error.message, 'danger');
             }
         });
     });

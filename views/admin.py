@@ -40,11 +40,9 @@ def dashboard():
 @admin.route('/manage_orders')
 @admin_required
 def manage_orders():
-    # Get filter parameters
     status = request.args.get('status', '')
     search = request.args.get('search', '')
     
-    # Build query
     query = Order.query
     
     if status:
@@ -58,34 +56,47 @@ def manage_orders():
             )
         )
     
-    # Get orders with filters applied
     orders = query.order_by(Order.created_at.desc()).all()
-    
     return render_template('admin/manage_orders.html', orders=orders)
 
-@admin.route('/order_details/<int:order_id>')
+@admin.route('/order/<int:order_id>')
 @admin_required
 def order_details(order_id):
+    order = Order.query.get_or_404(order_id)
+    return render_template('admin/order_details.html', order=order)
+
+@admin.route('/update_shipping_info/<int:order_id>', methods=['POST'])
+@admin_required
+def update_shipping_info(order_id):
     try:
+        data = request.get_json()
         order = Order.query.get_or_404(order_id)
         
-        return jsonify({
-            'success': True,
-            'order': {
-                'id': order.id,
-                'user_email': order.user.email,
-                'created_at': order.created_at.isoformat(),
-                'status': order.status,
-                'total': float(order.total)
-            },
-            'items': [{
-                'book_title': item.book.title,
-                'quantity': item.quantity,
-                'price': float(item.price)
-            } for item in order.items]
-        })
+        order.carrier = data.get('carrier')
+        order.tracking_number = data.get('tracking_number')
+        
+        shipping_date = data.get('shipping_date')
+        if shipping_date:
+            order.shipping_date = datetime.fromisoformat(shipping_date)
+        
+        order.shipping_address = data.get('shipping_address')
+        
+        db.session.commit()
+        
+        log_user_activity(current_user, 'order_shipping_update', 
+                         f'Updated shipping info for Order #{order_id}')
+        
+        if order.tracking_number:
+            try:
+                send_order_status_email(order.user.email, order.id, order.status, order.items, 
+                                      tracking_info={'carrier': order.carrier, 'number': order.tracking_number})
+            except Exception as e:
+                current_app.logger.error(f'Error sending shipping update email: {str(e)}')
+        
+        return jsonify({'success': True})
     except Exception as e:
-        current_app.logger.error(f'Error fetching order details: {str(e)}')
+        db.session.rollback()
+        current_app.logger.error(f'Error updating shipping info: {str(e)}')
         return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/update_order_status/<int:order_id>', methods=['POST'])
