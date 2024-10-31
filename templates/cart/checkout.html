@@ -74,17 +74,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const elements = stripe.elements({
         mode: 'payment',
         currency: 'usd',
-        appearance: {
-            theme: 'night',
-            variables: {
-                colorPrimary: '#0d6efd',
-                colorBackground: '#2b3035',
-                colorText: '#ffffff',
-                colorDanger: '#dc3545',
-                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                spacingUnit: '2px',
-                borderRadius: '4px'
-            }
+        amount: Math.round({{ total * 100 }}), // Ensure amount is in cents and rounded
+        amount_type: 'fixed',
+        automatic_payment_methods: {
+            enabled: true,
+            allow_redirects: 'never'
         }
     });
 
@@ -105,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         setLoading(true);
-
+        
         try {
             const response = await fetch('/cart/process-payment', {
                 method: 'POST',
@@ -113,26 +107,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                     'Content-Type': 'application/json'
                 }
             });
-
-            const data = await response.json();
             
+            const data = await response.json();
             if (!data.success) {
-                throw new Error(data.error || 'An error occurred while processing the payment.');
+                throw new Error(data.error || 'Failed to create payment intent');
             }
-
+            
             const { error } = await stripe.confirmPayment({
                 elements,
                 confirmParams: {
                     return_url: window.location.origin + '/payment/success'
                 }
             });
-
+            
             if (error) {
                 throw error;
             }
         } catch (error) {
             console.error('Payment error:', error);
-            errorMessage.textContent = error.message || 'An error occurred while processing your payment.';
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = error.message || 'An unexpected error occurred';
             errorMessage.style.display = 'block';
             setLoading(false);
         }
@@ -144,6 +138,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         spinner.classList.toggle('d-none', !isLoading);
         errorMessage.style.display = 'none';
     }
+});
+
+// Global error handler for unhandled rejections
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    const errorMessage = document.getElementById('error-message');
+    if (errorMessage) {
+        errorMessage.textContent = 'An unexpected error occurred. Please try again.';
+        errorMessage.style.display = 'block';
+    }
+    setLoading(false);
 });
 </script>
 {% endblock %}

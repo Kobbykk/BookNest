@@ -29,12 +29,17 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category = db.Column(db.String(50), db.ForeignKey('category.name', onupdate='CASCADE', name='fk_book_category'), nullable=True)
+    category = db.Column(db.String(50), db.ForeignKey('category.name', onupdate='CASCADE', ondelete='SET NULL', name='fk_book_category'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True, cascade='all, delete-orphan')
     discounts = db.relationship('BookDiscount', backref='book', lazy=True, cascade='all, delete-orphan')
     cart_items = db.relationship('CartItem', backref='book', lazy=True, cascade='all, delete-orphan')
     order_items = db.relationship('OrderItem', backref='book', lazy=True)
+
+    __table_args__ = (
+        db.CheckConstraint('price >= 0', name='check_positive_price'),
+        db.CheckConstraint('stock >= 0', name='check_non_negative_stock'),
+    )
 
     @property
     def average_rating(self):
@@ -63,6 +68,11 @@ class Discount(db.Model):
     active = db.Column(db.Boolean, default=True)
     books = db.relationship('BookDiscount', backref='discount', lazy=True, cascade='all, delete-orphan')
 
+    __table_args__ = (
+        db.CheckConstraint('percentage >= 0 AND percentage <= 100', name='check_valid_percentage'),
+        db.CheckConstraint('end_date > start_date', name='check_valid_date_range'),
+    )
+
 class BookDiscount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     book_id = db.Column(db.Integer, db.ForeignKey('book.id', ondelete='CASCADE', name='fk_book_discount_book'), nullable=False)
@@ -70,25 +80,25 @@ class BookDiscount(db.Model):
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
     active = db.Column(db.Boolean, default=True)
+    
     __table_args__ = (
+        db.CheckConstraint('end_date > start_date', name='check_valid_date_range'),
         db.Index('idx_book_discount_dates', 'start_date', 'end_date'),
     )
 
 class Order(db.Model):
-    STATUS_CHOICES = ['in_process', 'payment_pending', 'completed', 'approved']
+    STATUS_CHOICES = ['pending', 'in_process', 'payment_pending', 'completed', 'approved']
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE', name='fk_order_user'), nullable=False)
-    status = db.Column(db.String(20), default='in_process')
+    status = db.Column(db.String(20), default='pending')
     total = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
 
     __table_args__ = (
-        db.CheckConstraint(
-            status.in_(STATUS_CHOICES),
-            name='check_valid_status'
-        ),
+        db.CheckConstraint(status.in_(STATUS_CHOICES), name='check_valid_status'),
+        db.CheckConstraint('total >= 0', name='check_positive_total'),
     )
 
 class OrderItem(db.Model):
@@ -97,6 +107,7 @@ class OrderItem(db.Model):
     book_id = db.Column(db.Integer, db.ForeignKey('book.id', ondelete='SET NULL', name='fk_order_item_book'), nullable=True)
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
+    
     __table_args__ = (
         db.CheckConstraint('quantity > 0', name='check_positive_quantity'),
         db.CheckConstraint('price >= 0', name='check_valid_price'),
@@ -109,9 +120,10 @@ class Review(db.Model):
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
     __table_args__ = (
         db.CheckConstraint('rating >= 1 AND rating <= 5', name='check_valid_rating'),
-        db.UniqueConstraint('user_id', 'book_id', name='unique_user_book_review')
+        db.UniqueConstraint('user_id', 'book_id', name='unique_user_book_review'),
     )
 
 class CartItem(db.Model):
@@ -120,6 +132,7 @@ class CartItem(db.Model):
     book_id = db.Column(db.Integer, db.ForeignKey('book.id', ondelete='CASCADE', name='fk_cart_item_book'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
     __table_args__ = (
         db.CheckConstraint('quantity > 0', name='check_positive_quantity'),
         db.Index('idx_cart_user_book', 'user_id', 'book_id', unique=True),
