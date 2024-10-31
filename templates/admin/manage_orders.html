@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Order Management</h2>
+
+    <!-- Filter Controls -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <select class="form-select" id="status-filter">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" id="search-input" placeholder="Search by Order ID or Email">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary" id="apply-filters">Apply Filters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>#{{ order.id }}</td>
+                            <td>{{ order.user.email }}</td>
+                            <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>${{ "%.2f"|format(order.total) }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if order.status == 'completed' 
+                                                    else 'warning' if order.status == 'processing'
+                                                    else 'danger' if order.status == 'cancelled'
+                                                    else 'secondary' }}">
+                                    {{ order.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-info view-order" data-order-id="{{ order.id }}"
+                                            title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <select class="form-select form-select-sm status-select" 
+                                            style="width: auto;"
+                                            data-order-id="{{ order.id }}">
+                                        <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>Processing</option>
+                                        <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
+                                        <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                    </select>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="orderDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const orderModal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+    
+    // Handle status updates
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', async function() {
+            const orderId = this.dataset.orderId;
+            const newStatus = this.value;
+            
+            try {
+                const response = await fetch(`/admin/update_order_status/${orderId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error);
+                }
+                
+                showToast('Success', 'Order status updated successfully!', 'success');
+                
+                // Update badge color
+                const badge = this.closest('tr').querySelector('.badge');
+                badge.className = `badge bg-${newStatus === 'completed' ? 'success' : 
+                                               newStatus === 'processing' ? 'warning' :
+                                               newStatus === 'cancelled' ? 'danger' : 'secondary'}`;
+                badge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                
+            } catch (error) {
+                showToast('Error', error.message, 'danger');
+                this.value = this.defaultValue;
+            }
+        });
+    });
+
+    // Handle view order details
+    document.querySelectorAll('.view-order').forEach(button => {
+        button.addEventListener('click', async function() {
+            const orderId = this.dataset.orderId;
+            try {
+                const response = await fetch(`/admin/order_details/${orderId}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error);
+                }
+
+                // Populate modal with order details
+                document.getElementById('orderDetails').innerHTML = `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">Order Information</h6>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-3">Order ID</dt>
+                                <dd class="col-sm-9">#${data.order.id}</dd>
+                                
+                                <dt class="col-sm-3">Customer</dt>
+                                <dd class="col-sm-9">${data.order.user_email}</dd>
+                                
+                                <dt class="col-sm-3">Date</dt>
+                                <dd class="col-sm-9">${new Date(data.order.created_at).toLocaleString()}</dd>
+                                
+                                <dt class="col-sm-3">Status</dt>
+                                <dd class="col-sm-9">
+                                    <span class="badge bg-${data.order.status === 'completed' ? 'success' : 
+                                                        data.order.status === 'processing' ? 'warning' :
+                                                        data.order.status === 'cancelled' ? 'danger' : 'secondary'}">
+                                        ${data.order.status.charAt(0).toUpperCase() + data.order.status.slice(1)}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-sm-3">Total</dt>
+                                <dd class="col-sm-9">$${data.order.total.toFixed(2)}</dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">Order Items</h6>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Book</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.items.map(item => `
+                                            <tr>
+                                                <td>${item.book_title}</td>
+                                                <td>${item.quantity}</td>
+                                                <td>$${item.price.toFixed(2)}</td>
+                                                <td>$${(item.price * item.quantity).toFixed(2)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                orderModal.show();
+            } catch (error) {
+                showToast('Error', error.message, 'danger');
+            }
+        });
+    });
+
+    // Handle filters
+    document.getElementById('apply-filters').addEventListener('click', function() {
+        const status = document.getElementById('status-filter').value;
+        const search = document.getElementById('search-input').value;
+        
+        window.location.href = `/admin/manage_orders?status=${status}&search=${search}`;
+    });
+});
+
+// Toast notification function
+function showToast(title, message, type = 'info') {
+    const toastContainer = document.createElement('div');
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.top = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.zIndex = '1050';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    
+    const bsToast = new bootstrap.Toast(toast, {
+        autohide: true,
+        delay: 3000
+    });
+    
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toastContainer);
+    });
+}
+</script>
+{% endblock %}

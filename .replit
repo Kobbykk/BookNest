@@ -68,6 +68,7 @@ args = "python3 reset_db.py"
 
 [deployment]
 run = ["sh", "-c", "python main.py"]
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 5000

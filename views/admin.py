@@ -5,7 +5,7 @@ from forms import BookForm, CategoryForm, DiscountForm
 from app import db
 from utils.email import send_order_status_email
 from datetime import datetime, timedelta
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from werkzeug.utils import secure_filename
 from utils.activity_logger import log_user_activity
 
@@ -36,6 +36,82 @@ def dashboard():
                          users=users,
                          categories=categories,
                          discounts=discounts)
+
+@admin.route('/manage_orders')
+@admin_required
+def manage_orders():
+    # Get filter parameters
+    status = request.args.get('status', '')
+    search = request.args.get('search', '')
+    
+    # Build query
+    query = Order.query
+    
+    if status:
+        query = query.filter(Order.status == status)
+    
+    if search:
+        query = query.join(User).filter(
+            or_(
+                Order.id.cast(db.String).ilike(f'%{search}%'),
+                User.email.ilike(f'%{search}%')
+            )
+        )
+    
+    # Get orders with filters applied
+    orders = query.order_by(Order.created_at.desc()).all()
+    
+    return render_template('admin/manage_orders.html', orders=orders)
+
+@admin.route('/order_details/<int:order_id>')
+@admin_required
+def order_details(order_id):
+    try:
+        order = Order.query.get_or_404(order_id)
+        
+        return jsonify({
+            'success': True,
+            'order': {
+                'id': order.id,
+                'user_email': order.user.email,
+                'created_at': order.created_at.isoformat(),
+                'status': order.status,
+                'total': float(order.total)
+            },
+            'items': [{
+                'book_title': item.book.title,
+                'quantity': item.quantity,
+                'price': float(item.price)
+            } for item in order.items]
+        })
+    except Exception as e:
+        current_app.logger.error(f'Error fetching order details: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/update_order_status/<int:order_id>', methods=['POST'])
+@admin_required
+def update_order_status(order_id):
+    data = request.get_json()
+    new_status = data.get('status')
+    
+    if not new_status:
+        return jsonify({'success': False, 'error': 'Status is required'})
+    
+    try:
+        order = Order.query.get_or_404(order_id)
+        order.status = new_status
+        db.session.commit()
+        
+        try:
+            send_order_status_email(order.user.email, order.id, new_status, order.items)
+        except Exception as e:
+            current_app.logger.error(f'Error sending status update email: {str(e)}')
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        current_app.logger.error(f'Error updating order status: {str(e)}')
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/add_book', methods=['GET', 'POST'])
 @admin_required
@@ -173,45 +249,6 @@ def toggle_admin(user_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
-@admin.route('/user_profile/<int:user_id>')
-@admin_required
-def get_user_profile(user_id):
-    try:
-        user = User.query.get_or_404(user_id)
-        activities = UserActivity.query.filter_by(user_id=user_id).order_by(UserActivity.timestamp.desc()).limit(5).all()
-        orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).limit(5).all()
-        reviews = Review.query.filter_by(user_id=user_id).order_by(Review.created_at.desc()).limit(5).all()
-        
-        return jsonify({
-            'success': True,
-            'user': {
-                'username': user.username,
-                'email': user.email,
-                'is_admin': user.is_admin,
-                'created_at': user.created_at.isoformat()
-            },
-            'activities': [{
-                'activity_type': activity.activity_type,
-                'description': activity.description,
-                'timestamp': activity.timestamp.isoformat()
-            } for activity in activities],
-            'orders': [{
-                'id': order.id,
-                'total': float(order.total),
-                'status': order.status,
-                'created_at': order.created_at.isoformat()
-            } for order in orders],
-            'reviews': [{
-                'book_title': review.book.title,
-                'rating': review.rating,
-                'comment': review.comment,
-                'created_at': review.created_at.isoformat()
-            } for review in reviews]
-        })
-    except Exception as e:
-        current_app.logger.error(f'Error fetching user profile: {str(e)}')
-        return jsonify({'success': False, 'error': str(e)})
-
 @admin.route('/manage_categories', methods=['GET', 'POST'])
 @admin_required
 def manage_categories():
@@ -233,28 +270,3 @@ def manage_categories():
     
     categories = Category.query.order_by(Category.display_order).all()
     return render_template('admin/categories.html', categories=categories, form=form)
-
-@admin.route('/update_order_status/<int:order_id>', methods=['POST'])
-@admin_required
-def update_order_status(order_id):
-    data = request.get_json()
-    new_status = data.get('status')
-    
-    if not new_status:
-        return jsonify({'success': False, 'error': 'Status is required'})
-    
-    try:
-        order = Order.query.get_or_404(order_id)
-        order.status = new_status
-        db.session.commit()
-        
-        try:
-            send_order_status_email(order.user.email, order.id, new_status, order.items)
-        except Exception as e:
-            current_app.logger.error(f'Error sending status update email: {str(e)}')
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        current_app.logger.error(f'Error updating order status: {str(e)}')
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
