@@ -49,7 +49,8 @@ def load_user(user_id):
 
 with app.app_context():
     # Make sure to import the models here
-    from models import User, Book, Order, OrderItem
+    from models import User, Book, Order, OrderItem, Category, Review, Discount, BookDiscount
+    
     # Create tables if they don't exist
     db.create_all()
 
