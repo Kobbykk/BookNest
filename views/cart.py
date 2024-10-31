@@ -23,11 +23,11 @@ def get_cart_count():
         current_app.logger.error(f'Error getting cart count: {str(e)}')
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@cart.route('/view')
+@cart.route('/view_cart')
 @login_required
 def view_cart():
     cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
-    total = sum(item.book.price * item.quantity for item in cart_items)
+    total = sum(item.total for item in cart_items)
     return render_template('cart/cart.html', cart_items=cart_items, total=total)
 
 @cart.route('/add', methods=['POST'])
@@ -97,5 +97,3 @@ def update_cart():
         db.session.rollback()
         current_app.logger.error(f'Error updating cart: {str(e)}')
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
-
-# Rest of the file remains unchanged...

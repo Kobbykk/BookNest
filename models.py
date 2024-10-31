@@ -117,6 +117,10 @@ class CartItem(db.Model):
         db.UniqueConstraint('user_id', 'book_id', name='uq_user_book_cart'),
     )
 
+    @property
+    def total(self):
+        return self.book.price * self.quantity
+
 class UserActivity(db.Model):
     __tablename__ = 'user_activities'
     id = db.Column(db.Integer, primary_key=True)
