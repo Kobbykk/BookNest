@@ -15,7 +15,7 @@ def get_cart_count():
         count = 0
         # Only sum if cart exists and has items
         if cart_data and len(cart_data) > 0:
-            count = sum(int(val) for val in cart_data.values())
+            count = sum(int(val) for val in cart_data.values() if val)
         return jsonify({'count': count, 'success': True})
     except Exception as e:
         current_app.logger.error(f'Error getting cart count: {str(e)}')

@@ -94,7 +94,8 @@ async function fetchCartCount() {
         }
     } catch (error) {
         console.error('Error fetching cart count:', error);
-        // Don't update count on error, keep previous value
+        // Set count to 0 on error
+        updateCartCount(0);
     }
 }
 
@@ -104,8 +105,8 @@ function updateCartCount(count) {
     if (cartCount) {
         count = parseInt(count) || 0;
         cartCount.textContent = count.toString();
-        // Only hide if count is exactly 0
-        cartCount.style.display = count === 0 ? 'none' : 'inline';
+        // Only show badge if count is greater than 0
+        cartCount.style.display = count > 0 ? 'inline' : 'none';
     }
 }
 
