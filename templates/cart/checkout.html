@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const {error} = await stripe.confirmPayment({
                     elements,
                     confirmParams: {
-                        return_url: '{{ url_for("cart.payment_success", _external=True) }}'
+                        return_url: window.location.origin + '/cart/payment-success'
                     }
                 });
                 

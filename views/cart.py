@@ -140,3 +140,75 @@ def create_payment_intent():
     except Exception as e:
         current_app.logger.error(f'Error creating payment intent: {str(e)}')
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@cart.route('/payment-success')
+@login_required
+def payment_success():
+    try:
+        payment_intent_id = request.args.get('payment_intent')
+        if not payment_intent_id:
+            flash('Invalid payment session.', 'danger')
+            return redirect(url_for('cart.checkout'))
+        
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        
+        if payment_intent.status != 'succeeded':
+            flash('Payment was not successful.', 'danger')
+            return redirect(url_for('cart.checkout'))
+        
+        # Get cart items
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty.', 'warning')
+            return redirect(url_for('cart.view_cart'))
+        
+        # Calculate total
+        total = sum(item.total for item in cart_items)
+        
+        # Create order
+        order = Order(
+            user_id=current_user.id,
+            total=total,
+            status='processing',
+            payment_intent_id=payment_intent_id,
+            payment_status='completed',
+            payment_method='card',
+            payment_date=datetime.utcnow()
+        )
+        db.session.add(order)
+        
+        # Create order items and update stock
+        for cart_item in cart_items:
+            order_item = OrderItem(
+                order=order,
+                book_id=cart_item.book_id,
+                quantity=cart_item.quantity,
+                price=cart_item.book.price
+            )
+            db.session.add(order_item)
+            
+            # Update book stock
+            book = cart_item.book
+            book.stock -= cart_item.quantity
+            
+            # Delete cart item
+            db.session.delete(cart_item)
+        
+        db.session.commit()
+        
+        # Send confirmation email
+        try:
+            send_order_status_email(current_user.email, order.id, order.status, order.items)
+        except Exception as e:
+            current_app.logger.error(f'Error sending order confirmation email: {str(e)}')
+        
+        log_user_activity(current_user, 'order_placed', f'Order #{order.id} placed successfully')
+        flash('Your order has been placed successfully!', 'success')
+        return redirect(url_for('main.orders'))
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error processing payment success: {str(e)}')
+        flash('An error occurred while processing your order.', 'danger')
+        return redirect(url_for('cart.checkout'))
