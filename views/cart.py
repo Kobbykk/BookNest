@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from models import CartItem, Book, Order, OrderItem
 from extensions import db
 from utils.activity_logger import log_user_activity
+from sqlalchemy import func
 
 cart = Blueprint('cart', __name__)
 
@@ -12,6 +13,15 @@ def view_cart():
     cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
     total = sum(item.total for item in cart_items)
     return render_template('cart/view.html', cart_items=cart_items, total=total)
+
+@cart.route('/cart/count')
+@login_required
+def get_cart_count():
+    try:
+        count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
+        return jsonify({'success': True, 'count': int(count)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @cart.route('/cart/add/<int:book_id>', methods=['POST'])
 @login_required
