@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import inspect
 import logging
 
 # Configure logging
@@ -63,9 +64,43 @@ def create_app():
         app.register_blueprint(admin)
         app.register_blueprint(cart)
         
-        # Initialize database
-        from models import User, Book, Order, OrderItem, Category, Review, CartItem, UserActivity
-        db.create_all()
+        try:
+            # Import models and create tables in correct order
+            from models import (
+                User, Category, Book, Order, OrderItem, 
+                Review, CartItem, UserActivity, Wishlist,
+                ReadingList, ReadingListItem
+            )
+            
+            # Create tables in order
+            tables_order = [
+                User.__table__,
+                Category.__table__,
+                Book.__table__,
+                Order.__table__,
+                OrderItem.__table__,
+                Review.__table__,
+                CartItem.__table__,
+                UserActivity.__table__,
+                Wishlist.__table__,
+                ReadingList.__table__,
+                ReadingListItem.__table__
+            ]
+            
+            inspector = inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            
+            # Create tables in specific order if they don't exist
+            for table in tables_order:
+                if table.name not in existing_tables:
+                    table.create(db.engine)
+                    logging.info(f"Created table: {table.name}")
+            
+            logging.info("All database tables created successfully")
+            
+        except Exception as e:
+            logging.error(f"Error creating database tables: {str(e)}")
+            raise e
         
         return app
 

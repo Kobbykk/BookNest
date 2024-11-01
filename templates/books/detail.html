@@ -2,109 +2,400 @@
 
 {% block content %}
 <div class="container">
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <img src="{{ book.image_url }}" class="img-fluid" alt="{{ book.title }}">
-        </div>
+    <div class="row">
+        <!-- Book Details -->
         <div class="col-md-8">
-            <h2>{{ book.title }}</h2>
-            <p class="lead">By {{ book.author }}</p>
-            <p class="h4">${{ "%.2f"|format(book.price) }}</p>
-            <div class="mb-3">
-                <span class="h5">Average Rating: {{ "%.1f"|format(book.average_rating) }}/5.0</span>
-                <small class="text-muted">({{ book.reviews|length }} reviews)</small>
-            </div>
-            <p>{{ book.description }}</p>
-            {% if current_user.is_authenticated %}
-                <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
-            {% endif %}
-            <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Back to Books</a>
-        </div>
-    </div>
-
-    {% if similar_books %}
-    <!-- Similar Books Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h3>Similar Books</h3>
-            <div class="row">
-                {% for similar_book in similar_books %}
-                <div class="col-md-4">
-                    <div class="card h-100">
-                        <img src="{{ similar_book.image_url }}" class="card-img-top" alt="{{ similar_book.title }}">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ similar_book.title }}</h5>
-                            <p class="card-text">By {{ similar_book.author }}</p>
-                            <p class="card-text">${{ "%.2f"|format(similar_book.price) }}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <a href="{{ url_for('main.book_detail', book_id=similar_book.id) }}" class="btn btn-secondary">Details</a>
-                                {% if current_user.is_authenticated %}
-                                <button class="btn btn-primary add-to-cart" data-book-id="{{ similar_book.id }}">Add to Cart</button>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Book Image with Zoom -->
+                        <div class="col-md-4">
+                            <div class="book-image-container position-relative">
+                                <img src="{{ book.image_url }}" alt="{{ book.title }}" 
+                                     class="img-fluid rounded book-image mb-3" 
+                                     data-bs-toggle="modal" 
+                                     data-bs-target="#imageZoomModal">
+                                <div class="zoom-hint">
+                                    <i class="bi bi-zoom-in"></i>
+                                </div>
+                            </div>
+                            <!-- Social Sharing -->
+                            <div class="d-flex justify-content-around mb-3">
+                                <button class="btn btn-sm btn-outline-primary share-btn" data-platform="twitter">
+                                    <i class="bi bi-twitter"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary share-btn" data-platform="facebook">
+                                    <i class="bi bi-facebook"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary share-btn" data-platform="email">
+                                    <i class="bi bi-envelope"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Book Info -->
+                        <div class="col-md-8">
+                            <h2 class="card-title">{{ book.title }}</h2>
+                            <h5 class="text-muted">by {{ book.author }}</h5>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="rating me-2">
+                                        {% for _ in range(book.average_rating|int) %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                        {% endfor %}
+                                        {% for _ in range(5 - book.average_rating|int) %}
+                                            <i class="bi bi-star text-warning"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="text-muted">({{ book.reviews|length }} reviews)</span>
+                                </div>
+                            </div>
+                            
+                            <p class="h4 mb-3">${{ "%.2f"|format(book.price) }}</p>
+                            
+                            <div class="mb-3">
+                                <span class="badge bg-{{ 'success' if book.stock > 10 else 'warning' if book.stock > 0 else 'danger' }}">
+                                    {{ 'In Stock' if book.stock > 10 else 'Low Stock' if book.stock > 0 else 'Out of Stock' }}
+                                </span>
+                                {% if book.stock > 0 %}
+                                <small class="text-muted ms-2">({{ book.stock }} copies available)</small>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-flex gap-2 mb-3">
+                                {% if book.stock > 0 %}
+                                <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">
+                                    <i class="bi bi-cart-plus me-1"></i>Add to Cart
+                                </button>
+                                {% endif %}
+                                
+                                <button class="btn btn-outline-primary toggle-wishlist" data-book-id="{{ book.id }}">
+                                    <i class="bi bi-heart{% if book in current_user.wishlists|map(attribute='book')|list %}-fill{% endif %}"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#previewModal">
+                                    <i class="bi bi-eye me-1"></i>Preview
+                                </button>
+                            </div>
+                            
+                            <!-- Book Details -->
+                            <div class="book-details">
+                                {% if book.isbn %}
+                                <p><strong>ISBN:</strong> {{ book.isbn }}</p>
+                                {% endif %}
+                                {% if book.publisher %}
+                                <p><strong>Publisher:</strong> {{ book.publisher }}</p>
+                                {% endif %}
+                                {% if book.publication_date %}
+                                <p><strong>Publication Date:</strong> {{ book.publication_date.strftime('%B %d, %Y') }}</p>
+                                {% endif %}
+                                {% if book.page_count %}
+                                <p><strong>Pages:</strong> {{ book.page_count }}</p>
+                                {% endif %}
+                                {% if book.language %}
+                                <p><strong>Language:</strong> {{ book.language }}</p>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Reviews Section -->
-    <div class="row">
-        <div class="col-md-8">
-            <h3 class="mb-4">Reviews</h3>
-            
-            {% if current_user.is_authenticated %}
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h4 class="card-title">Write a Review</h4>
-                    <form method="POST" action="{{ url_for('main.add_review', book_id=book.id) }}">
-                        {{ form.csrf_token }}
-                        <div class="mb-3">
-                            {{ form.rating.label(class="form-label") }}
-                            {{ form.rating(class="form-control", type="number", min="1", max="5") }}
-                            {% if form.rating.errors %}
-                                {% for error in form.rating.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ form.comment.label(class="form-label") }}
-                            {{ form.comment(class="form-control", rows="3") }}
-                            {% if form.comment.errors %}
-                                {% for error in form.comment.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <button type="submit" class="btn btn-primary">Submit Review</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if book.reviews %}
-                {% for review in book.reviews|sort(attribute='created_at', reverse=True) %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h5 class="card-title">{{ review.user.username }}</h5>
-                            <div class="text-muted">
-                                Rating: {{ review.rating }}/5
-                                <small class="ms-2">{{ review.created_at.strftime('%Y-%m-%d') }}</small>
-                            </div>
-                        </div>
-                        <p class="card-text">{{ review.comment }}</p>
+                    
+                    <!-- Book Description -->
+                    <div class="mt-4">
+                        <h4>Description</h4>
+                        <p>{{ book.description }}</p>
                     </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">No reviews yet. Be the first to review this book!</p>
-            {% endif %}
+            </div>
+            
+            <!-- Reviews Section -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4>Customer Reviews</h4>
+                    
+                    {% if current_user.is_authenticated %}
+                    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                        Write a Review
+                    </button>
+                    {% endif %}
+                    
+                    <div class="reviews">
+                        {% for review in book.reviews %}
+                        <div class="review border-bottom pb-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="rating">
+                                        {% for _ in range(review.rating) %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                        {% endfor %}
+                                        {% for _ in range(5 - review.rating) %}
+                                            <i class="bi bi-star text-warning"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <h6 class="mb-1">{{ review.user.username }}</h6>
+                                    {% if review.user_badge %}
+                                    <span class="badge bg-{{ 'success' if review.user_badge == 'expert' 
+                                                      else 'primary' if review.user_badge == 'verified' 
+                                                      else 'secondary' }}">
+                                        {{ review.user_badge|title }} Reviewer
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{{ review.created_at.strftime('%B %d, %Y') }}</small>
+                            </div>
+                            <p class="mt-2 mb-1">{{ review.comment }}</p>
+                            <button class="btn btn-sm btn-outline-secondary helpful-vote" 
+                                    data-review-id="{{ review.id }}"
+                                    data-helpful-count="{{ review.helpful_votes }}">
+                                <i class="bi bi-hand-thumbs-up"></i>
+                                Helpful ({{ review.helpful_votes }})
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Similar Books -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4>Similar Books</h4>
+                    {% for similar_book in book.get_similar_books() %}
+                    <div class="similar-book mb-3">
+                        <div class="row g-0">
+                            <div class="col-4">
+                                <img src="{{ similar_book.image_url }}" alt="{{ similar_book.title }}" class="img-fluid rounded">
+                            </div>
+                            <div class="col-8 ps-3">
+                                <h6 class="mb-1">
+                                    <a href="{{ url_for('main.book_detail', book_id=similar_book.id) }}" class="text-reset">
+                                        {{ similar_book.title }}
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-1">by {{ similar_book.author }}</p>
+                                <p class="mb-0">${{ "%.2f"|format(similar_book.price) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Frequently Bought Together -->
+            <div class="card">
+                <div class="card-body">
+                    <h4>Frequently Bought Together</h4>
+                    {% for related_book in book.get_frequently_bought_together() %}
+                    <div class="related-book mb-3">
+                        <div class="row g-0">
+                            <div class="col-4">
+                                <img src="{{ related_book.image_url }}" alt="{{ related_book.title }}" class="img-fluid rounded">
+                            </div>
+                            <div class="col-8 ps-3">
+                                <h6 class="mb-1">
+                                    <a href="{{ url_for('main.book_detail', book_id=related_book.id) }}" class="text-reset">
+                                        {{ related_book.title }}
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-1">by {{ related_book.author }}</p>
+                                <p class="mb-0">${{ "%.2f"|format(related_book.price) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Image Zoom Modal -->
+<div class="modal fade" id="imageZoomModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-body p-0">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" 
+                        data-bs-dismiss="modal" aria-label="Close"></button>
+                <img src="{{ book.image_url }}" alt="{{ book.title }}" class="img-fluid w-100">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Book Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Preview: {{ book.title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% if book.preview_content %}
+                <div class="preview-content">
+                    {{ book.preview_content|safe }}
+                </div>
+                {% else %}
+                <p class="text-muted">No preview available for this book.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Write a Review</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('main.add_review', book_id=book.id) }}">
+                    {{ form.csrf_token }}
+                    <div class="mb-3">
+                        <label class="form-label">Rating</label>
+                        <div class="rating-input">
+                            {% for i in range(1, 6) %}
+                            <input type="radio" name="rating" value="{{ i }}" id="star{{ i }}" 
+                                   class="btn-check" autocomplete="off">
+                            <label for="star{{ i }}" class="btn btn-outline-warning">
+                                <i class="bi bi-star-fill"></i>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.comment.label(class="form-label") }}
+                        {{ form.comment(class="form-control", rows=4) }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.book-image-container {
+    cursor: zoom-in;
+}
+
+.zoom-hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    padding: 5px;
+    border-radius: 50%;
+}
+
+.rating-input {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 0.25rem;
+}
+
+.rating-input .btn-outline-warning {
+    --bs-btn-hover-bg: var(--bs-warning);
+    --bs-btn-active-bg: var(--bs-warning);
+}
+
+.rating-input .btn-check:checked + .btn-outline-warning {
+    background-color: var(--bs-warning);
+    border-color: var(--bs-warning);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Social sharing
+    document.querySelectorAll('.share-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const platform = this.dataset.platform;
+            const url = encodeURIComponent(window.location.href);
+            const title = encodeURIComponent('Check out this book: {{ book.title }}');
+            
+            let shareUrl;
+            switch(platform) {
+                case 'twitter':
+                    shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${title}`;
+                    break;
+                case 'facebook':
+                    shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+                    break;
+                case 'email':
+                    shareUrl = `mailto:?subject=${title}&body=${url}`;
+                    break;
+            }
+            
+            if (shareUrl) {
+                window.open(shareUrl, '_blank');
+            }
+        });
+    });
+    
+    // Helpful votes
+    document.querySelectorAll('.helpful-vote').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const reviewId = this.dataset.reviewId;
+            try {
+                const response = await fetch(`/review/${reviewId}/vote`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to vote');
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    const count = parseInt(this.dataset.helpfulCount) + 1;
+                    this.dataset.helpfulCount = count;
+                    this.innerHTML = `<i class="bi bi-hand-thumbs-up"></i> Helpful (${count})`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    });
+    
+    // Toggle wishlist
+    document.querySelector('.toggle-wishlist')?.addEventListener('click', async function() {
+        const bookId = this.dataset.bookId;
+        try {
+            const response = await fetch(`/wishlist/toggle/${bookId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to toggle wishlist');
+            }
+            
+            const data = await response.json();
+            const icon = this.querySelector('i');
+            if (data.added) {
+                icon.classList.remove('bi-heart');
+                icon.classList.add('bi-heart-fill');
+            } else {
+                icon.classList.remove('bi-heart-fill');
+                icon.classList.add('bi-heart');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+});
+</script>
 {% endblock %}

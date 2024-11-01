@@ -1,7 +1,8 @@
 from app import db
 from flask_login import UserMixin
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, text
+from sqlalchemy.ext.hybrid import hybrid_property
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -16,6 +17,8 @@ class User(UserMixin, db.Model):
     reviews = db.relationship('Review', backref='user', lazy=True, cascade='all, delete-orphan')
     cart_items = db.relationship('CartItem', backref='user', lazy=True, cascade='all, delete-orphan')
     activities = db.relationship('UserActivity', backref='user', lazy=True, cascade='all, delete-orphan')
+    wishlists = db.relationship('Wishlist', backref='user', lazy=True, cascade='all, delete-orphan')
+    reading_lists = db.relationship('ReadingList', backref='user', lazy=True, cascade='all, delete-orphan')
 
     ROLES = ['admin', 'manager', 'editor', 'customer']
 
@@ -41,6 +44,8 @@ class Category(db.Model):
     description = db.Column(db.Text)
     display_order = db.Column(db.Integer, default=0)
     books = db.relationship('Book', backref='category_ref', lazy=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
+    children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
 
 class Book(db.Model):
     __tablename__ = 'books'
@@ -56,12 +61,46 @@ class Book(db.Model):
     reviews = db.relationship('Review', backref='book', lazy=True, cascade='all, delete-orphan')
     cart_items = db.relationship('CartItem', backref='book', lazy=True, cascade='all, delete-orphan')
     order_items = db.relationship('OrderItem', backref='book', lazy=True)
+    preview_content = db.Column(db.Text)
+    isbn = db.Column(db.String(13), unique=True)
+    publisher = db.Column(db.String(100))
+    publication_date = db.Column(db.Date)
+    page_count = db.Column(db.Integer)
+    language = db.Column(db.String(50))
+    tags = db.Column(db.String(500))
+    wishlisted_by = db.relationship('Wishlist', backref='book', lazy=True, cascade='all, delete-orphan')
+    reading_list_items = db.relationship('ReadingListItem', backref='book', lazy=True, cascade='all, delete-orphan')
 
     @property
     def average_rating(self):
         if not self.reviews:
             return 0
         return db.session.query(func.avg(Review.rating)).filter(Review.book_id == self.id).scalar() or 0
+
+    def get_similar_books(self, limit=5):
+        """Get similar books based on category and tags"""
+        return Book.query.filter(
+            Book.category == self.category,
+            Book.id != self.id
+        ).limit(limit).all()
+
+    def get_frequently_bought_together(self, limit=3):
+        """Get books frequently bought together"""
+        query = text("""
+            SELECT b.id, COUNT(*) as purchase_count
+            FROM books b
+            JOIN order_items oi1 ON b.id = oi1.book_id
+            JOIN orders o1 ON oi1.order_id = o1.id
+            JOIN orders o2 ON o1.user_id = o2.user_id
+            JOIN order_items oi2 ON o2.id = oi2.order_id
+            WHERE oi2.book_id = :book_id AND b.id != :book_id
+            GROUP BY b.id
+            ORDER BY purchase_count DESC
+            LIMIT :limit
+        """)
+        result = db.session.execute(query, {'book_id': self.id, 'limit': limit})
+        book_ids = [row[0] for row in result]
+        return Book.query.filter(Book.id.in_(book_ids)).all()
 
 class Order(db.Model):
     __tablename__ = 'orders'
@@ -96,6 +135,16 @@ class Review(db.Model):
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    helpful_votes = db.Column(db.Integer, default=0)
+    verified_purchase = db.Column(db.Boolean, default=False)
+
+    @hybrid_property
+    def user_badge(self):
+        if self.verified_purchase and self.helpful_votes >= 10:
+            return 'expert'
+        elif self.verified_purchase:
+            return 'verified'
+        return 'reviewer'
 
 class CartItem(db.Model):
     __tablename__ = 'cart_items'
@@ -117,3 +166,28 @@ class UserActivity(db.Model):
     description = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     ip_address = db.Column(db.String(45))
+
+class Wishlist(db.Model):
+    __tablename__ = 'wishlists'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ReadingList(db.Model):
+    __tablename__ = 'reading_lists'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    is_public = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    items = db.relationship('ReadingListItem', backref='reading_list', lazy=True, cascade='all, delete-orphan')
+
+class ReadingListItem(db.Model):
+    __tablename__ = 'reading_list_items'
+    id = db.Column(db.Integer, primary_key=True)
+    reading_list_id = db.Column(db.Integer, db.ForeignKey('reading_lists.id', ondelete='CASCADE'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
