@@ -2,94 +2,146 @@
 
 {% block content %}
 <div class="container">
-    <!-- Search and Filter Form -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <form method="GET" class="row g-3">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <input type="text" class="form-control" name="search" placeholder="Search books..." value="{{ search_query }}">
-                        <button class="btn btn-secondary" type="submit">Search</button>
+    {% if featured_books %}
+    <!-- Featured Books Carousel -->
+    <div id="featuredBooks" class="carousel slide mb-4" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+            {% for book in featured_books %}
+            <button type="button" data-bs-target="#featuredBooks" data-bs-slide-to="{{ loop.index0 }}" 
+                    class="{{ 'active' if loop.first }}" aria-current="true" 
+                    aria-label="Book {{ loop.index }}"></button>
+            {% endfor %}
+        </div>
+        <div class="carousel-inner">
+            {% for book in featured_books %}
+            <div class="carousel-item {{ 'active' if loop.first }}">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <img src="{{ book.image_url }}" class="d-block w-100 rounded" alt="{{ book.title }}">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="carousel-caption text-start text-light p-4">
+                            <h2>{{ book.title }}</h2>
+                            <p class="lead">by {{ book.author }}</p>
+                            <p>{{ book.description|truncate(200) }}</p>
+                            <div class="d-flex align-items-center gap-3">
+                                <p class="h4 mb-0">${{ "%.2f"|format(book.price) }}</p>
+                                <a href="{{ url_for('main.book_detail', book_id=book.id) }}" 
+                                   class="btn btn-primary">Learn More</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <select class="form-select" name="category" onchange="this.form.submit()">
+            </div>
+            {% endfor %}
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#featuredBooks" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#featuredBooks" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Filter Controls -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <select class="form-select" name="category">
                         {% for category in categories %}
-                        <option value="{{ category }}" {% if category == current_category %}selected{% endif %}>
+                        <option value="{{ category }}" {% if current_category == category %}selected{% endif %}>
                             {{ category }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="Search books..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" name="sort">
+                        <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
+                        <option value="price_low" {% if sort_by == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="price_high" {% if sort_by == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                        <option value="rating" {% if sort_by == 'rating' %}selected{% endif %}>Average Rating</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Apply</button>
+                </div>
             </form>
         </div>
     </div>
 
-    {% if current_user.is_authenticated and recommendations %}
-    <!-- Recommendations Section -->
-    <div class="mb-4">
-        <h3>Recommended for You</h3>
-        <div class="row">
-            {% for book in recommendations %}
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <img src="{{ book.image_url }}" class="card-img-top" alt="{{ book.title }}">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ book.title }}</h5>
-                        <p class="card-text">By {{ book.author }}</p>
-                        <p class="card-text">${{ "%.2f"|format(book.price) }}</p>
-                        <p class="card-text">
-                            <small class="text-muted">
-                                Rating: {{ "%.1f"|format(book.average_rating) }}/5.0 
-                                ({{ book.reviews|length }} reviews)
-                            </small>
-                        </p>
-                        <p class="card-text"><small class="text-muted">Category: {{ book.category }}</small></p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-secondary">Details</a>
-                            <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Books Grid -->
-    <div class="row">
-        {% if books %}
-            {% for book in books %}
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <img src="{{ book.image_url }}" class="card-img-top" alt="{{ book.title }}">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ book.title }}</h5>
-                        <p class="card-text">By {{ book.author }}</p>
-                        <p class="card-text">${{ "%.2f"|format(book.price) }}</p>
-                        <p class="card-text">
-                            <small class="text-muted">
-                                Rating: {{ "%.1f"|format(book.average_rating) }}/5.0 
-                                ({{ book.reviews|length }} reviews)
-                            </small>
-                        </p>
-                        <p class="card-text"><small class="text-muted">Category: {{ book.category }}</small></p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-secondary">Details</a>
-                            {% if current_user.is_authenticated %}
-                            <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">Add to Cart</button>
+    <!-- Book Grid -->
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+        {% for book in books %}
+        <div class="col">
+            <div class="card h-100">
+                <img src="{{ book.image_url }}" class="card-img-top" alt="{{ book.title }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ book.title }}</h5>
+                    <p class="card-text text-muted">by {{ book.author }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 mb-0">${{ "%.2f"|format(book.price) }}</span>
+                        <div class="btn-group">
+                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" 
+                               class="btn btn-outline-primary">
+                                <i class="bi bi-info-circle"></i>
+                            </a>
+                            {% if book.stock > 0 %}
+                            <button class="btn btn-primary add-to-cart" data-book-id="{{ book.id }}">
+                                <i class="bi bi-cart-plus"></i>
+                            </button>
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12 text-center">
-                <p class="lead">No books found matching your criteria.</p>
-            </div>
-        {% endif %}
+        </div>
+        {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% for page in pagination.iter_pages() %}
+                {% if page %}
+                    <li class="page-item {{ 'active' if page == pagination.page }}">
+                        <a class="page-link" href="{{ url_for('main.index', page=page) }}">{{ page }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
+
+<style>
+.carousel-item {
+    height: 400px;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.carousel-item img {
+    height: 400px;
+    object-fit: contain;
+}
+
+.carousel-caption {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+}
+</style>
 {% endblock %}

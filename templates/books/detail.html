@@ -54,6 +54,24 @@
                             
                             <p class="h4 mb-3">${{ "%.2f"|format(book.price) }}</p>
                             
+                            <!-- Format Options -->
+                            {% if book.formats %}
+                            <div class="mb-3">
+                                <h6>Available Formats:</h6>
+                                <div class="list-group">
+                                    {% for format in book.formats %}
+                                    <label class="list-group-item">
+                                        <input type="radio" name="format" value="{{ format.id }}" 
+                                               class="form-check-input me-2" 
+                                               {% if loop.first %}checked{% endif %}>
+                                        {{ format.format_type|title }}
+                                        <span class="float-end">${{ "%.2f"|format(format.price) }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            
                             <div class="mb-3">
                                 <span class="badge bg-{{ 'success' if book.stock > 10 else 'warning' if book.stock > 0 else 'danger' }}">
                                     {{ 'In Stock' if book.stock > 10 else 'Low Stock' if book.stock > 0 else 'Out of Stock' }}

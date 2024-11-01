@@ -1,8 +1,8 @@
-from app import db
 from flask_login import UserMixin
 from datetime import datetime
 from sqlalchemy import func, text
 from sqlalchemy.ext.hybrid import hybrid_property
+from extensions import db
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -47,6 +47,15 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
 
+class BookFormat(db.Model):
+    __tablename__ = 'book_formats'
+    id = db.Column(db.Integer, primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    format_type = db.Column(db.String(20), nullable=False)  # hardcover, paperback, ebook
+    price = db.Column(db.Float, nullable=False)
+    stock = db.Column(db.Integer, default=0)
+    isbn = db.Column(db.String(20))
+
 class Book(db.Model):
     __tablename__ = 'books'
     id = db.Column(db.Integer, primary_key=True)
@@ -70,6 +79,8 @@ class Book(db.Model):
     tags = db.Column(db.String(500))
     wishlisted_by = db.relationship('Wishlist', backref='book', lazy=True, cascade='all, delete-orphan')
     reading_list_items = db.relationship('ReadingListItem', backref='book', lazy=True, cascade='all, delete-orphan')
+    formats = db.relationship('BookFormat', backref='book', lazy=True, cascade='all, delete-orphan')
+    is_featured = db.Column(db.Boolean, default=False)
 
     @property
     def average_rating(self):

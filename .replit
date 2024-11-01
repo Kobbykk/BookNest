@@ -31,6 +31,18 @@ args = "Migrate Roles"
 task = "workflow.run"
 args = "Seed Books"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Database Update"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Database Reset"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Database Setup"
+
 [[workflows.workflow]]
 name = "Flask Server"
 author = "agent"
@@ -43,7 +55,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python3 main.py"
+args = "python3 app.py"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -102,8 +114,50 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "python3 seed_books.py"
 
+[[workflows.workflow]]
+name = "Database Update"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 reset_db.py && python3 seed_books.py"
+
+[[workflows.workflow]]
+name = "Database Reset"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 reset_db.py && python3 seed_books.py"
+
+[[workflows.workflow]]
+name = "Database Setup"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 reset_db.py && python3 seed_books.py"
+
 [deployment]
-run = ["sh", "-c", "python3 main.py"]
+run = ["sh", "-c", "python3 app.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
