@@ -60,7 +60,7 @@ def index():
         query = query.order_by(Book.created_at.desc())
     elif sort_by == 'rating':
         query = query.order_by(Book.average_rating.desc())
-
+    
     # Paginate results
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     books = pagination.items
@@ -75,4 +75,66 @@ def index():
                          sort_by=sort_by,
                          price_range=price_range)
 
-# Rest of the routes remain the same...
+@main.route('/book/<int:book_id>')
+def book_detail(book_id):
+    book = Book.query.get_or_404(book_id)
+    form = ReviewForm()
+    return render_template('books/detail.html', book=book, form=form)
+
+@main.route('/orders')
+@login_required
+def orders():
+    user_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    return render_template('orders/list.html', orders=user_orders)
+
+@main.route('/add_review/<int:book_id>', methods=['POST'])
+@login_required
+def add_review(book_id):
+    form = ReviewForm()
+    if form.validate_on_submit():
+        # Check if user has already reviewed this book
+        existing_review = Review.query.filter_by(
+            user_id=current_user.id,
+            book_id=book_id
+        ).first()
+        
+        if existing_review:
+            flash('You have already reviewed this book.', 'warning')
+            return redirect(url_for('main.book_detail', book_id=book_id))
+        
+        review = Review(
+            user_id=current_user.id,
+            book_id=book_id,
+            rating=form.rating.data,
+            comment=form.comment.data
+        )
+        
+        db.session.add(review)
+        db.session.commit()
+        
+        log_user_activity(current_user, 'review_add', f'Added review for book #{book_id}')
+        flash('Your review has been added!', 'success')
+    
+    return redirect(url_for('main.book_detail', book_id=book_id))
+
+@main.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    form = ProfileUpdateForm(obj=current_user)
+    if form.validate_on_submit():
+        if not current_user.check_password(form.current_password.data):
+            flash('Current password is incorrect.', 'danger')
+            return render_template('profile/settings.html', form=form)
+        
+        current_user.username = form.username.data
+        current_user.email = form.email.data.lower()
+        
+        if form.new_password.data:
+            current_user.password_hash = generate_password_hash(form.new_password.data)
+        
+        db.session.commit()
+        log_user_activity(current_user, 'profile_update', 'Updated profile settings')
+        flash('Your profile has been updated!', 'success')
+        return redirect(url_for('main.profile'))
+    
+    return render_template('profile/settings.html', form=form)
