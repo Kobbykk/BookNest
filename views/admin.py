@@ -33,6 +33,64 @@ def dashboard():
                          orders=orders,
                          categories=categories)
 
+@admin.route('/users')
+@permission_required('manage_users')
+def manage_users():
+    users = User.query.all()
+    roles = User.ROLES
+    return render_template('admin/users.html', users=users, roles=roles)
+
+@admin.route('/users/add', methods=['GET', 'POST'])
+@permission_required('manage_users')
+def add_user():
+    form = UserForm()
+    if form.validate_on_submit():
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            role=form.role.data
+        )
+        if form.password.data:
+            user.password_hash = generate_password_hash(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        flash('User added successfully!', 'success')
+        return redirect(url_for('admin.manage_users'))
+    return render_template('admin/user_form.html', form=form)
+
+@admin.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@permission_required('manage_users')
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserForm(obj=user)
+    if form.validate_on_submit():
+        user.username = form.username.data
+        user.email = form.email.data
+        user.role = form.role.data
+        if form.password.data:
+            user.password_hash = generate_password_hash(form.password.data)
+        db.session.commit()
+        flash('User updated successfully!', 'success')
+        return redirect(url_for('admin.manage_users'))
+    return render_template('admin/user_form.html', form=form, user=user)
+
+@admin.route('/users/delete/<int:user_id>', methods=['POST'])
+@permission_required('manage_users')
+def delete_user(user_id):
+    if current_user.id == user_id:
+        return jsonify({'success': False, 'error': 'Cannot delete your own account'})
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@admin.route('/users/<int:user_id>/activity')
+@permission_required('manage_users')
+def user_activity(user_id):
+    user = User.query.get_or_404(user_id)
+    activities = UserActivity.query.filter_by(user_id=user_id).order_by(UserActivity.timestamp.desc()).all()
+    return render_template('admin/user_activities.html', user=user, activities=activities)
+
 @admin.route('/categories')
 @permission_required('manage_categories')
 def manage_categories():
