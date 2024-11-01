@@ -21,6 +21,7 @@ def get_cart_count():
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
+        db.session.rollback()  # Add rollback on error
         return jsonify({'success': False, 'error': str(e)})
 
 @cart.route('/cart/add/<int:book_id>', methods=['POST'])
@@ -33,6 +34,8 @@ def add_to_cart(book_id):
         
         cart_item = CartItem.query.filter_by(user_id=current_user.id, book_id=book_id).first()
         if cart_item:
+            if cart_item.quantity >= book.stock:
+                return jsonify({'success': False, 'error': 'Not enough stock available'})
             cart_item.quantity += 1
         else:
             cart_item = CartItem(user_id=current_user.id, book_id=book_id, quantity=1)
@@ -41,7 +44,7 @@ def add_to_cart(book_id):
         db.session.commit()
         log_user_activity(current_user, 'cart_add', f'Added {book.title} to cart')
         
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'message': 'Book added to cart successfully'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})

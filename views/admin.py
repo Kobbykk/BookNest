@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
-from models import User, Book, Order, Category, Review, UserActivity
+from models import User, Book, Order, Category, Review, UserActivity, BookFormat
 from forms import UserForm, CategoryForm, BookForm
 from extensions import db
 from utils.activity_logger import log_user_activity
@@ -32,6 +32,37 @@ def dashboard():
                          books=books,
                          orders=orders,
                          categories=categories)
+
+@admin.route('/books/add', methods=['GET', 'POST'])
+@permission_required('manage_books')
+def add_book():
+    form = BookForm()
+    if form.validate_on_submit():
+        book = Book(
+            title=form.title.data,
+            author=form.author.data,
+            price=form.price.data,
+            description=form.description.data,
+            image_url=form.image_url.data,
+            stock=form.stock.data,
+            category=form.category_id.data,
+            is_featured=form.is_featured.data
+        )
+        # Add book formats
+        for format_form in form.formats:
+            format = BookFormat(
+                format_type=format_form.format_type.data,
+                price=format_form.price.data,
+                stock=format_form.stock.data,
+                isbn=format_form.isbn.data
+            )
+            book.formats.append(format)
+            
+        db.session.add(book)
+        db.session.commit()
+        flash('Book added successfully!', 'success')
+        return redirect(url_for('admin.dashboard'))
+    return render_template('admin/book_form.html', form=form)
 
 @admin.route('/orders')
 @permission_required('manage_orders')
