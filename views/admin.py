@@ -7,6 +7,7 @@ from utils.activity_logger import log_user_activity
 from utils.mailer import send_order_status_email
 from werkzeug.security import generate_password_hash
 from functools import wraps
+from datetime import datetime
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -31,6 +32,53 @@ def dashboard():
                          books=books,
                          orders=orders,
                          categories=categories)
+
+@admin.route('/categories')
+@permission_required('manage_categories')
+def manage_categories():
+    categories = Category.query.order_by(Category.display_order).all()
+    form = CategoryForm()
+    return render_template('admin/categories.html', categories=categories, form=form)
+
+@admin.route('/categories/add', methods=['GET', 'POST'])
+@permission_required('manage_categories')
+def add_category():
+    form = CategoryForm()
+    if form.validate_on_submit():
+        category = Category(
+            name=form.name.data,
+            description=form.description.data,
+            display_order=form.display_order.data
+        )
+        db.session.add(category)
+        db.session.commit()
+        flash('Category added successfully!', 'success')
+        return redirect(url_for('admin.manage_categories'))
+    return render_template('admin/category_form.html', form=form)
+
+@admin.route('/categories/edit/<int:category_id>', methods=['GET', 'POST'])
+@permission_required('manage_categories')
+def edit_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    form = CategoryForm(obj=category)
+    if form.validate_on_submit():
+        category.name = form.name.data
+        category.description = form.description.data
+        category.display_order = form.display_order.data
+        db.session.commit()
+        flash('Category updated successfully!', 'success')
+        return redirect(url_for('admin.manage_categories'))
+    return render_template('admin/category_form.html', form=form, category=category)
+
+@admin.route('/categories/delete/<int:category_id>', methods=['POST'])
+@permission_required('manage_categories')
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    if category.books:
+        return jsonify({'success': False, 'error': 'Cannot delete category with books'})
+    db.session.delete(category)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @admin.route('/update_order_status/<int:order_id>', methods=['POST'])
 @permission_required('manage_orders')
