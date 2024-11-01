@@ -12,17 +12,19 @@ def reset_database():
             db.session.commit()
             print("Schema reset complete")
             
-            # Create tables in order
+            # Create tables in correct dependency order
             from models import (
                 User, Category, Book, Order, OrderItem, 
                 Review, CartItem, UserActivity, Wishlist,
-                ReadingList, ReadingListItem
+                ReadingList, ReadingListItem, BookFormat
             )
             
+            # Order matters due to foreign key relationships
             tables_order = [
                 User.__table__,
                 Category.__table__,
                 Book.__table__,
+                BookFormat.__table__,
                 Order.__table__,
                 OrderItem.__table__,
                 Review.__table__,

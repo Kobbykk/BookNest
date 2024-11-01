@@ -84,7 +84,8 @@ def book_detail(book_id):
 @main.route('/orders')
 @login_required
 def orders():
-    user_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    user_orders = Order.query.filter_by(user_id=current_user.id)\
+                      .order_by(Order.created_at.desc()).all()
     return render_template('orders/list.html', orders=user_orders)
 
 @main.route('/add_review/<int:book_id>', methods=['POST'])

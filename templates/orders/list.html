@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">My Orders</h2>
+    
+    {% if orders %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Items</th>
+                            <th>Tracking</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>#{{ order.id }}</td>
+                            <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>${{ "%.2f"|format(order.total) }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if order.status == 'completed' 
+                                                    else 'warning' if order.status == 'processing'
+                                                    else 'danger' if order.status == 'cancelled'
+                                                    else 'secondary' }}">
+                                    {{ order.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-info" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#order-{{ order.id }}" 
+                                        aria-expanded="false">
+                                    View Items ({{ order.items|length }})
+                                </button>
+                            </td>
+                            <td>
+                                {% if order.tracking_number %}
+                                    {{ order.carrier }}<br>
+                                    <small class="text-muted">{{ order.tracking_number }}</small>
+                                {% else %}
+                                    <span class="text-muted">Not shipped</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr class="collapse" id="order-{{ order.id }}">
+                            <td colspan="6">
+                                <div class="card card-body bg-light">
+                                    <h6>Order Items:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Book</th>
+                                                    <th>Quantity</th>
+                                                    <th>Price</th>
+                                                    <th>Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in order.items %}
+                                                <tr>
+                                                    <td>
+                                                        <a href="{{ url_for('main.book_detail', book_id=item.book.id) }}">
+                                                            {{ item.book.title }}
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ item.quantity }}</td>
+                                                    <td>${{ "%.2f"|format(item.price) }}</td>
+                                                    <td>${{ "%.2f"|format(item.price * item.quantity) }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% if order.shipping_address %}
+                                    <div class="mt-3">
+                                        <h6>Shipping Address:</h6>
+                                        <p class="mb-0">{{ order.shipping_address }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h4 class="alert-heading">No Orders Yet!</h4>
+        <p class="mb-0">You haven't placed any orders yet. Start shopping to see your order history here.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">Browse Books</a>
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
