@@ -1,12 +1,19 @@
 from app import app, db
 from models import Book, Category, CartItem, OrderItem, Review
 from datetime import datetime
-import random
+from sqlalchemy import inspect, text
 
 def seed_books():
     print("Seeding books...")
     with app.app_context():
         try:
+            # Verify tables exist before seeding
+            inspector = inspect(db.engine)
+            if 'categories' not in inspector.get_table_names():
+                # Create all tables if they don't exist
+                db.create_all()
+                print("Created missing tables")
+            
             # Create categories
             categories = [
                 Category(name='Programming', description='Books about programming and software development'),
@@ -16,9 +23,14 @@ def seed_books():
                 Category(name='AI', description='Books about artificial intelligence and deep learning')
             ]
             
+            # Check for existing categories to avoid duplicates
+            existing_categories = {cat.name for cat in Category.query.all()}
             for category in categories:
-                db.session.add(category)
+                if category.name not in existing_categories:
+                    db.session.add(category)
+            
             db.session.commit()
+            print("Categories seeded successfully")
             
             # Create sample books
             books = [
@@ -84,9 +96,12 @@ def seed_books():
                 }
             ]
             
+            # Check for existing books to avoid duplicates
+            existing_isbns = {book.isbn for book in Book.query.all()}
             for book_data in books:
-                book = Book(**book_data)
-                db.session.add(book)
+                if book_data['isbn'] not in existing_isbns:
+                    book = Book(**book_data)
+                    db.session.add(book)
             
             db.session.commit()
             print("Books seeded successfully")

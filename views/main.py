@@ -62,18 +62,24 @@ def index():
     # Get recommendations if user is authenticated
     recommendations = []
     if current_user.is_authenticated:
-        # Get user's purchase history categories
+        # Get user's purchase history categories using properly aliased tables
         purchased_categories = db.session.query(Book.category)\
+            .distinct()\
             .join(OrderItem, Book.id == OrderItem.book_id)\
             .join(Order, OrderItem.order_id == Order.id)\
             .filter(Order.user_id == current_user.id)\
-            .group_by(Book.category)\
             .all()
         
         if purchased_categories:
             categories_list = [cat[0] for cat in purchased_categories]
+            # Get recommended books from purchased categories
             recommendations = Book.query\
                 .filter(Book.category.in_(categories_list))\
+                .filter(~Book.id.in_(
+                    db.session.query(OrderItem.book_id)\
+                    .join(Order, OrderItem.order_id == Order.id)\
+                    .filter(Order.user_id == current_user.id)
+                ))\
                 .order_by(func.random())\
                 .limit(4)\
                 .all()
