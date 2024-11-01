@@ -17,82 +17,84 @@
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Bookshop" width="30" height="30" class="me-2">
                 <span>Bookshop</span>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.index') }}">
-                            <i class="bi bi-book me-1"></i>Books
-                        </a>
-                    </li>
-                    {% if current_user.is_authenticated %}
+            <div class="d-flex align-items-center">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.orders') }}">
-                                <i class="bi bi-clock-history me-1"></i>My Orders
+                            <a class="nav-link" href="{{ url_for('main.index') }}">
+                                <i class="bi bi-book me-1"></i>Books
                             </a>
                         </li>
-                        {% if current_user.is_admin %}
+                        {% if current_user.is_authenticated %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main.orders') }}">
+                                    <i class="bi bi-clock-history me-1"></i>My Orders
+                                </a>
+                            </li>
+                            {% if current_user.is_admin %}
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-gear me-1"></i>
+                                        <span>Admin Panel</span>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('admin.manage_categories') }}">
+                                            <i class="bi bi-tags me-1"></i>Categories
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                            <i class="bi bi-book me-1"></i>Books
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">
+                                            <i class="bi bi-people me-1"></i>Users
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin.manage_orders') }}">
+                                            <i class="bi bi-cart-check me-1"></i>Manage Orders
+                                        </a></li>
+                                    </ul>
+                                </li>
+                            {% endif %}
+                        {% endif %}
+                    </ul>
+                    <ul class="navbar-nav">
+                        {% if current_user.is_authenticated %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-gear me-1"></i>
-                                    <span>Admin Panel</span>
+                                    <i class="bi bi-person-circle me-1"></i>
+                                    <span>{{ current_user.username }}</span>
                                 </a>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.manage_categories') }}">
-                                        <i class="bi bi-tags me-1"></i>Categories
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">
+                                        <i class="bi bi-gear me-1"></i>Profile Settings
                                     </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
-                                        <i class="bi bi-book me-1"></i>Books
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">
-                                        <i class="bi bi-people me-1"></i>Users
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.manage_orders') }}">
-                                        <i class="bi bi-cart-check me-1"></i>Manage Orders
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                        <i class="bi bi-box-arrow-right me-1"></i>Logout
                                     </a></li>
                                 </ul>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link position-relative" href="{{ url_for('cart.view_cart') }}">
+                                    <i class="bi bi-cart3 me-1"></i>Cart
+                                    <span class="badge bg-primary position-absolute top-0 start-100 translate-middle" id="cart-count">0</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                                    <i class="bi bi-person me-1"></i>Login
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.register') }}">
+                                    <i class="bi bi-person-plus me-1"></i>Register
+                                </a>
+                            </li>
                         {% endif %}
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav">
-                    {% if current_user.is_authenticated %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person-circle me-1"></i>
-                                <span>{{ current_user.username }}</span>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">
-                                    <i class="bi bi-gear me-1"></i>Profile Settings
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                    <i class="bi bi-box-arrow-right me-1"></i>Logout
-                                </a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="{{ url_for('cart.view_cart') }}">
-                                <i class="bi bi-cart3 me-1"></i>Cart
-                                <span class="badge bg-primary position-absolute top-0 start-100 translate-middle" id="cart-count">0</span>
-                            </a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">
-                                <i class="bi bi-person me-1"></i>Login
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.register') }}">
-                                <i class="bi bi-person-plus me-1"></i>Register
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>

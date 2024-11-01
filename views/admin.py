@@ -64,6 +64,39 @@ def add_book():
         return redirect(url_for('admin.dashboard'))
     return render_template('admin/book_form.html', form=form)
 
+@admin.route('/books/edit/<int:book_id>', methods=['GET', 'POST'])
+@permission_required('manage_books')
+def edit_book(book_id):
+    book = Book.query.get_or_404(book_id)
+    form = BookForm(obj=book)
+    
+    if form.validate_on_submit():
+        book.title = form.title.data
+        book.author = form.author.data
+        book.price = form.price.data
+        book.description = form.description.data
+        book.image_url = form.image_url.data
+        book.stock = form.stock.data
+        book.category = form.category_id.data
+        book.is_featured = form.is_featured.data
+        
+        # Update book formats
+        book.formats = []
+        for format_form in form.formats:
+            format = BookFormat(
+                format_type=format_form.format_type.data,
+                price=format_form.price.data,
+                stock=format_form.stock.data,
+                isbn=format_form.isbn.data
+            )
+            book.formats.append(format)
+        
+        db.session.commit()
+        flash('Book updated successfully!', 'success')
+        return redirect(url_for('admin.dashboard'))
+        
+    return render_template('admin/book_form.html', form=form, book=book)
+
 @admin.route('/orders')
 @permission_required('manage_orders')
 def manage_orders():

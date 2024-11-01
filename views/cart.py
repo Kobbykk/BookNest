@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import CartItem, Book, Order, OrderItem
 from extensions import db
@@ -12,7 +12,7 @@ cart = Blueprint('cart', __name__)
 def view_cart():
     cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
     total = sum(item.total for item in cart_items)
-    return render_template('cart/view.html', cart_items=cart_items, total=total)
+    return render_template('cart/cart.html', cart_items=cart_items, total=total)
 
 @cart.route('/cart/count')
 @login_required
@@ -76,15 +76,35 @@ def update_cart(item_id):
 @login_required
 def remove_from_cart(item_id):
     try:
-        cart_item = CartItem.query.get_or_404(item_id)
+        # Get cart item and eagerly load the book relationship
+        cart_item = CartItem.query.options(db.joinedload(CartItem.book)).get_or_404(item_id)
+        
         if cart_item.user_id != current_user.id:
             return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+        # Store book title before deletion
+        book_title = cart_item.book.title
         
         db.session.delete(cart_item)
         db.session.commit()
         
-        log_user_activity(current_user, 'cart_remove', f'Removed {cart_item.book.title} from cart')
+        log_user_activity(current_user, 'cart_remove', f'Removed {book_title} from cart')
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Error removing cart item: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+@cart.route('/cart/checkout')
+@login_required
+def checkout():
+    cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+    total = sum(item.total for item in cart_items)
+    
+    # Get stripe publishable key from environment variable or config
+    stripe_publishable_key = current_app.config.get('STRIPE_PUBLISHABLE_KEY')
+    
+    return render_template('cart/checkout.html', 
+                         cart_items=cart_items, 
+                         total=total,
+                         stripe_publishable_key=stripe_publishable_key)
