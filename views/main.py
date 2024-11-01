@@ -62,7 +62,7 @@ def index():
     # Get recommendations if user is authenticated
     recommendations = []
     if current_user.is_authenticated:
-        # Get user's purchase history categories using the corrected query
+        # Get user's purchase history categories
         purchased_categories = db.session.query(Book.category)\
             .join(OrderItem, Book.id == OrderItem.book_id)\
             .join(Order, OrderItem.order_id == Order.id)\
