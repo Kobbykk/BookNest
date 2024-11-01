@@ -35,11 +35,9 @@ def dashboard():
 @admin.route('/manage_users')
 @permission_required('manage_users')
 def manage_users():
-    # Get role filter from query parameters
     role_filter = request.args.get('role', '')
     search_query = request.args.get('search', '')
     
-    # Build the query
     query = User.query
     if role_filter:
         query = query.filter_by(role=role_filter)
@@ -58,7 +56,6 @@ def add_user():
     form = UserForm()
     if form.validate_on_submit():
         try:
-            # Check if email already exists
             if User.query.filter(User.email.ilike(form.email.data)).first():
                 flash('Email already registered.', 'danger')
                 return render_template('admin/user_form.html', form=form)
@@ -93,13 +90,11 @@ def edit_user(user_id):
     
     if form.validate_on_submit():
         try:
-            # Check if email is being changed and already exists
             if user.email != form.email.data and \
                User.query.filter(User.email.ilike(form.email.data)).first():
                 flash('Email already registered.', 'danger')
                 return render_template('admin/user_form.html', form=form, user=user)
             
-            # Prevent changing own role from admin
             if user.id == current_user.id and user.role == 'admin' and form.role.data != 'admin':
                 flash('You cannot remove your own admin role.', 'danger')
                 return render_template('admin/user_form.html', form=form, user=user)
@@ -171,6 +166,10 @@ def add_category():
     form = CategoryForm()
     if form.validate_on_submit():
         try:
+            if Category.query.filter(Category.name.ilike(form.name.data)).first():
+                flash('A category with this name already exists.', 'danger')
+                return redirect(url_for('admin.manage_categories'))
+            
             category = Category(
                 name=form.name.data,
                 description=form.description.data,
@@ -178,11 +177,75 @@ def add_category():
             )
             db.session.add(category)
             db.session.commit()
+            
+            log_user_activity(current_user, 'category_create', 
+                            f'Created category: {category.name}')
             flash('Category added successfully!', 'success')
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f'Error adding category: {str(e)}')
             flash('Error adding category.', 'danger')
     return redirect(url_for('admin.manage_categories'))
+
+@admin.route('/edit_category/<int:category_id>', methods=['GET', 'POST'])
+@permission_required('manage_categories')
+def edit_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    form = CategoryForm(obj=category)
+    
+    if request.method == 'GET':
+        return render_template('admin/category_form.html', form=form, category=category)
+    
+    if form.validate_on_submit():
+        try:
+            existing = Category.query.filter(
+                Category.name.ilike(form.name.data),
+                Category.id != category_id
+            ).first()
+            if existing:
+                flash('A category with this name already exists.', 'danger')
+                return render_template('admin/category_form.html', form=form, category=category)
+            
+            category.name = form.name.data
+            category.description = form.description.data
+            category.display_order = form.display_order.data
+            
+            db.session.commit()
+            
+            log_user_activity(current_user, 'category_update', 
+                            f'Updated category: {category.name}')
+            flash('Category updated successfully!', 'success')
+            return redirect(url_for('admin.manage_categories'))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'Error updating category: {str(e)}')
+            flash('Error updating category.', 'danger')
+    
+    return render_template('admin/category_form.html', form=form, category=category)
+
+@admin.route('/delete_category/<int:category_id>', methods=['POST'])
+@permission_required('manage_categories')
+def delete_category(category_id):
+    try:
+        category = Category.query.get_or_404(category_id)
+        
+        if category.books:
+            return jsonify({
+                'success': False, 
+                'error': 'Cannot delete category that has books. Please move or delete the books first.'
+            })
+        
+        db.session.delete(category)
+        db.session.commit()
+        
+        log_user_activity(current_user, 'category_delete', 
+                         f'Deleted category: {category.name}')
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error deleting category: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/add_book', methods=['GET', 'POST'])
 @permission_required('manage_books')
@@ -297,11 +360,9 @@ def bulk_update_books():
 @admin.route('/manage_orders')
 @permission_required('manage_orders')
 def manage_orders():
-    # Get filter parameters
     status_filter = request.args.get('status', '')
     search_query = request.args.get('search', '')
     
-    # Build the query
     query = Order.query
     if status_filter:
         query = query.filter_by(status=status_filter)
@@ -329,7 +390,6 @@ def update_order_status(order_id):
         order.status = data['status']
         db.session.commit()
         
-        # Send email notification
         send_order_status_email(order.user.email, order.id, order.status, order.items)
         
         return jsonify({'success': True})
