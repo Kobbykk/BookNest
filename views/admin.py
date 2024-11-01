@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import User, Book, Order, Category, Review, UserActivity
-from forms import UserForm, CategoryForm
+from forms import UserForm, CategoryForm, BookForm
 from app import db
 from utils.activity_logger import log_user_activity
 from utils.email import send_order_status_email
@@ -158,6 +158,142 @@ def user_activity(user_id):
                           .limit(50).all()
     return render_template('admin/user_activities.html', user=user, activities=activities)
 
+@admin.route('/manage_categories')
+@permission_required('manage_categories')
+def manage_categories():
+    categories = Category.query.order_by(Category.display_order).all()
+    form = CategoryForm()
+    return render_template('admin/categories.html', categories=categories, form=form)
+
+@admin.route('/add_category', methods=['POST'])
+@permission_required('manage_categories')
+def add_category():
+    form = CategoryForm()
+    if form.validate_on_submit():
+        try:
+            category = Category(
+                name=form.name.data,
+                description=form.description.data,
+                display_order=form.display_order.data
+            )
+            db.session.add(category)
+            db.session.commit()
+            flash('Category added successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding category.', 'danger')
+    return redirect(url_for('admin.manage_categories'))
+
+@admin.route('/add_book', methods=['GET', 'POST'])
+@permission_required('manage_books')
+def add_book():
+    form = BookForm()
+    if form.validate_on_submit():
+        try:
+            book = Book(
+                title=form.title.data,
+                author=form.author.data,
+                price=form.price.data,
+                description=form.description.data,
+                image_url=form.image_url.data,
+                stock=form.stock.data,
+                category=form.category_id.data
+            )
+            db.session.add(book)
+            db.session.commit()
+            
+            log_user_activity(current_user, 'book_create', f'Added new book: {book.title}')
+            flash('Book added successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding book.', 'danger')
+    return render_template('admin/book_form.html', form=form)
+
+@admin.route('/edit_book/<int:book_id>', methods=['GET', 'POST'])
+@permission_required('manage_books')
+def edit_book(book_id):
+    book = Book.query.get_or_404(book_id)
+    form = BookForm(obj=book)
+    
+    if form.validate_on_submit():
+        try:
+            book.title = form.title.data
+            book.author = form.author.data
+            book.price = form.price.data
+            book.description = form.description.data
+            book.image_url = form.image_url.data
+            book.stock = form.stock.data
+            book.category = form.category_id.data
+            
+            db.session.commit()
+            log_user_activity(current_user, 'book_update', f'Updated book: {book.title}')
+            flash('Book updated successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating book.', 'danger')
+    
+    return render_template('admin/book_form.html', form=form, book=book)
+
+@admin.route('/delete_book/<int:book_id>', methods=['POST'])
+@permission_required('manage_books')
+def delete_book(book_id):
+    try:
+        book = Book.query.get_or_404(book_id)
+        db.session.delete(book)
+        db.session.commit()
+        
+        log_user_activity(current_user, 'book_delete', f'Deleted book: {book.title}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/update_book_stock', methods=['POST'])
+@permission_required('manage_books')
+def update_book_stock():
+    try:
+        data = request.get_json()
+        book = Book.query.get_or_404(data['book_id'])
+        book.stock = data['stock']
+        db.session.commit()
+        
+        log_user_activity(current_user, 'stock_update', 
+                         f'Updated stock for {book.title} to {book.stock}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/bulk_update_books', methods=['POST'])
+@permission_required('manage_books')
+def bulk_update_books():
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        category = data.get('category')
+        value = float(data.get('value', 0))
+        
+        query = Book.query
+        if category:
+            query = query.filter_by(category=category)
+        
+        books = query.all()
+        for book in books:
+            if action == 'price_adjust':
+                book.price = book.price * (1 + value/100)
+            elif action == 'stock_adjust':
+                book.stock = max(0, book.stock + int(value))
+        
+        db.session.commit()
+        log_user_activity(current_user, 'bulk_update', 
+                         f'Bulk updated {len(books)} books: {action} by {value}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @admin.route('/manage_orders')
 @permission_required('manage_orders')
 def manage_orders():
@@ -200,29 +336,3 @@ def update_order_status(order_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
-
-@admin.route('/manage_categories')
-@permission_required('manage_categories')
-def manage_categories():
-    categories = Category.query.order_by(Category.display_order).all()
-    form = CategoryForm()
-    return render_template('admin/categories.html', categories=categories, form=form)
-
-@admin.route('/add_category', methods=['POST'])
-@permission_required('manage_categories')
-def add_category():
-    form = CategoryForm()
-    if form.validate_on_submit():
-        try:
-            category = Category(
-                name=form.name.data,
-                description=form.description.data,
-                display_order=form.display_order.data
-            )
-            db.session.add(category)
-            db.session.commit()
-            flash('Category added successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash('Error adding category.', 'danger')
-    return redirect(url_for('admin.manage_categories'))
