@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models import Book, Review, Order, Wishlist, ReadingList, ReadingListItem
+from models import Book, Review, Order, OrderItem, Wishlist, ReadingList, ReadingListItem
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func, or_
 from app import db
@@ -62,10 +62,10 @@ def index():
     # Get recommendations if user is authenticated
     recommendations = []
     if current_user.is_authenticated:
-        # Get user's purchase history categories
+        # Get user's purchase history categories using a corrected query
         purchased_categories = db.session.query(Book.category)\
-            .join(Order.items)\
-            .join(Order)\
+            .join(OrderItem, Book.id == OrderItem.book_id)\
+            .join(Order, Order.id == OrderItem.order_id)\
             .filter(Order.user_id == current_user.id)\
             .group_by(Book.category)\
             .all()
