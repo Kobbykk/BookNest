@@ -33,6 +33,12 @@ def dashboard():
                          orders=orders,
                          categories=categories)
 
+@admin.route('/orders')
+@permission_required('manage_orders')
+def manage_orders():
+    orders = Order.query.order_by(Order.created_at.desc()).all()
+    return render_template('admin/manage_orders.html', orders=orders)
+
 @admin.route('/users')
 @permission_required('manage_users')
 def manage_users():
