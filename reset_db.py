@@ -6,25 +6,18 @@ def reset_database():
     print("Resetting database...")
     with app.app_context():
         try:
-            # Drop all tables in correct order
-            db.session.execute(text("""
-                DROP TABLE IF EXISTS reading_list_items CASCADE;
-                DROP TABLE IF EXISTS reading_lists CASCADE;
-                DROP TABLE IF EXISTS wishlists CASCADE;
-                DROP TABLE IF EXISTS user_activities CASCADE;
-                DROP TABLE IF EXISTS cart_items CASCADE;
-                DROP TABLE IF EXISTS reviews CASCADE;
-                DROP TABLE IF EXISTS order_items CASCADE;
-                DROP TABLE IF EXISTS orders CASCADE;
-                DROP TABLE IF EXISTS books CASCADE;
-                DROP TABLE IF EXISTS categories CASCADE;
-                DROP TABLE IF EXISTS users CASCADE;
-            """))
+            # Drop schema and recreate
+            db.session.execute(text('DROP SCHEMA public CASCADE'))
+            db.session.execute(text('CREATE SCHEMA public'))
             db.session.commit()
-            print("All tables dropped")
+            print("Schema reset complete")
             
             # Create tables in order
-            from models import User, Category, Book, Order, OrderItem, Review, CartItem, UserActivity, Wishlist, ReadingList, ReadingListItem
+            from models import (
+                User, Category, Book, Order, OrderItem, 
+                Review, CartItem, UserActivity, Wishlist,
+                ReadingList, ReadingListItem
+            )
             
             tables_order = [
                 User.__table__,
@@ -40,14 +33,9 @@ def reset_database():
                 ReadingListItem.__table__
             ]
             
-            inspector = inspect(db.engine)
-            existing_tables = inspector.get_table_names()
-            
-            # Create tables in specific order
             for table in tables_order:
-                if table.name not in existing_tables:
-                    table.create(db.engine)
-                    print(f"Created table: {table.name}")
+                table.create(db.engine)
+                print(f"Created table: {table.name}")
             
             # Create admin user
             from werkzeug.security import generate_password_hash
