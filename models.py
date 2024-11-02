@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import func, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from extensions import db
+from werkzeug.security import check_password_hash
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -21,6 +22,9 @@ class User(UserMixin, db.Model):
     reading_lists = db.relationship('ReadingList', backref='user', lazy=True, cascade='all, delete-orphan')
 
     ROLES = ['admin', 'manager', 'editor', 'customer']
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
     def has_role(self, role):
         return self.role == role or (role == 'admin' and self.is_admin)

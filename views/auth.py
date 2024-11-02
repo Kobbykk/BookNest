@@ -19,6 +19,11 @@ def login():
             login_user(user)
             log_user_activity(user, 'user_login', 'User logged in')
             flash('Logged in successfully!', 'success')
+            
+            # Redirect to the page they were trying to access, or home page
+            next_page = request.args.get('next')
+            if next_page and next_page.startswith('/'):  # Ensure the URL is relative
+                return redirect(next_page)
             return redirect(url_for('main.index'))
         flash('Invalid email or password.', 'danger')
     return render_template('auth/login.html', form=form)

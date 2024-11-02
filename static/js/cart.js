@@ -1,199 +1,211 @@
+// Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Fetch initial cart count
-    fetchCartCount();
+    // Update cart count
+    function updateCartCount() {
+        fetch('/cart/count')
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        // If unauthorized, just show 0 items
+                        updateCartBadge(0);
+                        return;
+                    }
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    updateCartBadge(data.count);
+                }
+            })
+            .catch(error => {
+                console.warn('Unable to fetch cart count:', error);
+                // On error, don't update the badge
+            });
+    }
+
+    function updateCartBadge(count) {
+        const cartCount = document.getElementById('cart-count');
+        if (cartCount) {
+            cartCount.textContent = count;
+            cartCount.style.display = count > 0 ? 'inline' : 'none';
+        }
+    }
 
     // Add to cart functionality
-    const addToCartButtons = document.querySelectorAll('.add-to-cart');
-    addToCartButtons.forEach(button => {
-        button.addEventListener('click', async function() {
+    document.querySelectorAll('.add-to-cart').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
             const bookId = this.dataset.bookId;
-            try {
-                const response = await fetch(`/cart/add/${bookId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        book_id: bookId,
-                        quantity: 1
-                    })
-                });
-
+            
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ book_id: bookId, quantity: 1 })
+            })
+            .then(response => {
                 if (response.status === 401) {
-                    window.location.href = '/login';
-                    return;
+                    // Redirect to login with return URL
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    return null;
                 }
-
-                if (!response.ok) {
-                    throw new Error('Failed to add item to cart');
-                }
-
-                const data = await response.json();
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return; // Skip if redirecting to login
+                
                 if (data.success) {
-                    await fetchCartCount();  // Fetch updated count immediately
+                    updateCartCount();
                     showToast('Success', 'Book added to cart!', 'success');
                 } else {
-                    throw new Error(data.error || 'Failed to add book to cart');
+                    showToast('Error', data.error || 'Failed to add book to cart', 'danger');
                 }
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error('Error:', error);
-                showToast('Error', error.message, 'danger');
-            }
+                showToast('Error', 'Failed to add book to cart. Please try again.', 'danger');
+            });
         });
     });
 
-    // Remove item functionality
-    const removeButtons = document.querySelectorAll('.remove-item');
-    removeButtons.forEach(button => {
-        button.addEventListener('click', async function() {
+    // Cart quantity update functionality
+    document.querySelectorAll('.cart-quantity').forEach(input => {
+        input.addEventListener('change', function() {
             const itemId = this.dataset.itemId;
-            try {
-                const response = await fetch(`/cart/remove/${itemId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'same-origin'
-                });
+            const newQuantity = parseInt(this.value);
+            
+            if (isNaN(newQuantity) || newQuantity < 0) {
+                showToast('Error', 'Invalid quantity', 'danger');
+                return;
+            }
 
+            fetch(`/cart/update/${itemId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ quantity: newQuantity })
+            })
+            .then(response => {
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Failed to remove item: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    const row = this.closest('tr');
-                    if (row) {
-                        row.remove();
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return null;
                     }
-                    
-                    await fetchCartCount();
-                    
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return;
+                
+                if (data.success) {
+                    if (newQuantity === 0) {
+                        // Remove the item row if quantity is 0
+                        const row = this.closest('tr');
+                        if (row) row.remove();
+                    }
+                    updateCartCount();
+                    // Reload the page to update totals
                     window.location.reload();
                 } else {
-                    throw new Error(data.error || 'Failed to remove item');
+                    showToast('Error', data.error || 'Failed to update cart', 'danger');
                 }
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error('Error:', error);
-                showToast('Error', error.message, 'danger');
-            }
+                showToast('Error', 'Failed to update cart. Please try again.', 'danger');
+            });
         });
     });
 
-    // Cart quantity update
-    const quantityInputs = document.querySelectorAll('.cart-quantity');
-    quantityInputs.forEach(input => {
-        input.addEventListener('change', async function() {
+    // Remove from cart functionality
+    document.querySelectorAll('.remove-item').forEach(button => {
+        button.addEventListener('click', function() {
             const itemId = this.dataset.itemId;
-            const quantity = parseInt(this.value);
             
-            try {
-                const response = await fetch(`/cart/update/${itemId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({
-                        quantity: quantity
-                    })
-                });
-
+            fetch(`/cart/remove/${itemId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Failed to update cart: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    if (quantity <= 0) {
-                        window.location.reload();
-                    } else {
-                        await fetchCartCount();
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return null;
                     }
-                } else {
-                    throw new Error(data.error || 'Failed to update cart');
+                    throw new Error('Network response was not ok');
                 }
-            } catch (error) {
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return;
+                
+                if (data.success) {
+                    const row = this.closest('tr');
+                    if (row) row.remove();
+                    updateCartCount();
+                    // Reload the page to update totals
+                    window.location.reload();
+                } else {
+                    showToast('Error', data.error || 'Failed to remove item', 'danger');
+                }
+            })
+            .catch(error => {
                 console.error('Error:', error);
-                showToast('Error', error.message, 'danger');
-                this.value = this.defaultValue;
-            }
+                showToast('Error', 'Failed to remove item. Please try again.', 'danger');
+            });
         });
     });
-});
 
-// Fetch current cart count
-async function fetchCartCount() {
-    try {
-        const response = await fetch('/cart/count');
-        if (!response.ok) {
-            throw new Error('Failed to fetch cart count');
+    // Initialize cart count on page load
+    updateCartCount();
+
+    // Toast notification function
+    function showToast(title, message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.style.position = 'fixed';
+            container.style.top = '20px';
+            container.style.right = '20px';
+            container.style.zIndex = '1050';
+            document.body.appendChild(container);
         }
         
-        const data = await response.json();
-        if (data.success) {
-            updateCartCount(data.count);
-        } else {
-            throw new Error(data.error || 'Failed to fetch cart count');
-        }
-    } catch (error) {
-        console.error('Error fetching cart count:', error);
-        // Set count to 0 on error
-        updateCartCount(0);
-    }
-}
-
-// Update cart count badge (modified to ensure visibility)
-function updateCartCount(count) {
-    const cartCount = document.getElementById('cart-count');
-    if (cartCount) {
-        count = parseInt(count) || 0;
-        cartCount.textContent = count.toString();
-        cartCount.style.display = count > 0 ? 'inline-block' : 'none';  // Changed to inline-block
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
         
-        // Force a reflow to ensure the badge updates
-        cartCount.offsetHeight;
-    }
-}
-
-// Show toast notification
-function showToast(title, message, type = 'info') {
-    const toastContainer = document.createElement('div');
-    toastContainer.style.position = 'fixed';
-    toastContainer.style.top = '20px';
-    toastContainer.style.right = '20px';
-    toastContainer.style.zIndex = '1050';
-    
-    const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type} border-0`;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <strong>${title}</strong><br>
-                ${message}
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    `;
-    
-    toastContainer.appendChild(toast);
-    document.body.appendChild(toastContainer);
-    
-    const bsToast = new bootstrap.Toast(toast, {
-        autohide: true,
-        delay: 3000
-    });
-    
-    bsToast.show();
-    
-    toast.addEventListener('hidden.bs.toast', () => {
-        document.body.removeChild(toastContainer);
-    });
-}
+        `;
+        
+        document.getElementById('toast-container').appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast, {
+            autohide: true,
+            delay: 3000
+        });
+        
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+});

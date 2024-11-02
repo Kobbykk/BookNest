@@ -3,98 +3,94 @@
 {% block content %}
 <div class="container">
     <div class="row">
-        <!-- Profile Update Form -->
-        <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h3 class="card-title">Profile Settings</h3>
-                    <form method="POST" action="{{ url_for('main.update_profile') }}">
-                        {{ form.csrf_token }}
-                        <div class="mb-3">
-                            {{ form.username.label(class="form-label") }}
-                            {{ form.username(class="form-control") }}
-                            {% if form.username.errors %}
-                                {% for error in form.username.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ form.email.label(class="form-label") }}
-                            {{ form.email(class="form-control") }}
-                            {% if form.email.errors %}
-                                {% for error in form.email.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ form.current_password.label(class="form-label") }}
-                            {{ form.current_password(class="form-control") }}
-                            {% if form.current_password.errors %}
-                                {% for error in form.current_password.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ form.new_password.label(class="form-label") }}
-                            {{ form.new_password(class="form-control") }}
-                            {% if form.new_password.errors %}
-                                {% for error in form.new_password.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                            <small class="text-muted">Leave blank if you don't want to change password</small>
-                        </div>
-                        <div class="mb-3">
-                            {{ form.confirm_password.label(class="form-label") }}
-                            {{ form.confirm_password(class="form-control") }}
-                            {% if form.confirm_password.errors %}
-                                {% for error in form.confirm_password.errors %}
-                                    <div class="alert alert-danger">{{ error }}</div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-                        <button type="submit" class="btn btn-primary">Update Profile</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
         <!-- Profile Summary -->
         <div class="col-md-4">
             <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Account Summary</h4>
+                </div>
                 <div class="card-body">
-                    <h4 class="card-title">Account Summary</h4>
-                    <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%Y-%m-%d') }}</p>
-                    <p><strong>Total Orders:</strong> {{ orders|length }}</p>
-                    <p><strong>Reviews Written:</strong> {{ reviews|length }}</p>
+                    <p><strong>Username:</strong> {{ current_user.username }}</p>
+                    <p><strong>Email:</strong> {{ current_user.email }}</p>
+                    <p><strong>Member Since:</strong> {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+                    <a href="{{ url_for('main.settings') }}" class="btn btn-primary">
+                        <i class="bi bi-gear me-2"></i>Edit Profile
+                    </a>
                 </div>
             </div>
-
-            <!-- Recent Activity -->
+            
+            <!-- Recent Orders Summary -->
             <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Recent Orders</h4>
+                </div>
                 <div class="card-body">
-                    <h4 class="card-title">Recent Activity</h4>
-                    <div class="list-group list-group-flush">
-                        {% for review in reviews[:3] %}
-                        <div class="list-group-item bg-transparent">
-                            <h6 class="mb-1">Reviewed {{ review.book.title }}</h6>
-                            <small class="text-muted">{{ review.created_at.strftime('%Y-%m-%d') }}</small>
+                    {% if current_user.orders %}
+                        {% for order in current_user.orders[:3] %}
+                        <div class="mb-3">
+                            <p class="mb-1"><strong>Order #{{ order.id }}</strong></p>
+                            <p class="mb-1 text-muted">{{ order.created_at.strftime('%Y-%m-%d') }}</p>
+                            <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'processing' else 'danger' if order.status == 'cancelled' else 'secondary' }}">
+                                {{ order.status|title }}
+                            </span>
                         </div>
                         {% endfor %}
-                        
-                        {% for order in orders[:3] %}
-                        <div class="list-group-item bg-transparent">
-                            <h6 class="mb-1">Order #{{ order.id }}</h6>
-                            <small class="text-muted">{{ order.created_at.strftime('%Y-%m-%d') }}</small>
+                        <a href="{{ url_for('main.orders') }}" class="btn btn-outline-primary btn-sm">View All Orders</a>
+                    {% else %}
+                        <p class="text-muted mb-0">No orders yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activity Feed -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Recent Activity</h4>
+                </div>
+                <div class="card-body">
+                    {% if activities %}
+                    <div class="timeline">
+                        {% for activity in activities %}
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="badge bg-{{ 'info' if activity.activity_type.startswith('user_') else 'success' if activity.activity_type.startswith('order_') else 'warning' if activity.activity_type.startswith('cart_') else 'primary' }}">
+                                        {{ activity.activity_type|replace('_', ' ')|title }}
+                                    </span>
+                                    <span class="ms-2">{{ activity.description }}</span>
+                                </div>
+                                <small class="text-muted">{{ activity.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <p class="text-muted">No recent activity.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 1rem 0;
+}
+
+.timeline-item {
+    padding: 0.5rem 1rem;
+    border-left: 2px solid var(--bs-primary);
+    margin-bottom: 1rem;
+    background: rgba(var(--bs-primary-rgb), 0.05);
+    border-radius: 0.25rem;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+</style>
 {% endblock %}
