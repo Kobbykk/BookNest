@@ -5,6 +5,7 @@ import logging
 from extensions import db, login_manager, mail
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from flask_wtf.csrf import CSRFProtect
 import time
 
 # Configure logging
@@ -28,6 +29,7 @@ def checkout(dbapi_connection, connection_record, connection_proxy):
 
 def create_app():
     app = Flask(__name__)
+    csrf = CSRFProtect()
     
     # Configure app
     app.config.update(
@@ -51,13 +53,15 @@ def create_app():
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
-        PERMANENT_SESSION_LIFETIME=3600
+        PERMANENT_SESSION_LIFETIME=3600,
+        WTF_CSRF_ENABLED=True
     )
     
     # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
+    csrf.init_app(app)
     
     # Configure login manager
     login_manager.login_view = 'auth.login'

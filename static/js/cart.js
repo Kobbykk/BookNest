@@ -1,8 +1,18 @@
 // Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token from meta tag
-    const csrfTokenElement = document.querySelector('meta[name="csrf-token"]');
-    const csrfToken = csrfTokenElement ? csrfTokenElement.getAttribute('content') : '';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    // Add error handling for missing CSRF token
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+    }
+
+    // Common headers for all fetch requests
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken || ''
+    };
 
     // Update cart count
     function updateCartCount() {
@@ -45,10 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fetch('/cart/add', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
+                headers: headers,
                 body: JSON.stringify({ book_id: bookId })
             })
             .then(response => {
@@ -98,10 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             fetch(`/cart/update/${itemId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
+                headers: headers,
                 body: JSON.stringify({ quantity: newQuantity })
             })
             .then(response => {
@@ -115,9 +119,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateCartBadge(data.count);
                     if (newQuantity === 0) {
                         const row = this.closest('tr');
-                        if (row) row.remove();
+                        if (row) {
+                            row.remove();
+                            window.location.reload();
+                        }
                     }
-                    window.location.reload();
                 } else {
                     showToast('Error', data.error || 'Failed to update cart', 'danger');
                     this.value = previousValue;
@@ -141,10 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fetch(`/cart/remove/${itemId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                }
+                headers: headers
             })
             .then(response => {
                 if (!response.ok) {

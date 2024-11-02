@@ -15,25 +15,28 @@ def get_cart_count():
     try:
         if not current_user.is_authenticated:
             return jsonify({'success': True, 'count': 0})
-            
+        
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error in get_cart_count: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to fetch cart count'}), 500
 
 @cart.route('/cart/add', methods=['POST'])
 @login_required
 def add_to_cart():
     try:
         data = request.get_json()
-        book_id = data.get('book_id')
-        
-        if not book_id:
-            return jsonify({'success': False, 'error': 'Invalid book ID'}), 400
-            
+        if not data or 'book_id' not in data:
+            return jsonify({'success': False, 'error': 'Invalid request data'}), 400
+
+        book_id = data['book_id']
         book = Book.query.get_or_404(book_id)
+        
+        if not book.stock:
+            return jsonify({'success': False, 'error': 'Book is out of stock'}), 400
+
         cart_item = CartItem.query.filter_by(user_id=current_user.id, book_id=book_id).first()
         
         if cart_item:
@@ -43,8 +46,9 @@ def add_to_cart():
         else:
             cart_item = CartItem(user_id=current_user.id, book_id=book_id, quantity=1)
             db.session.add(cart_item)
-            
+        
         db.session.commit()
+        log_user_activity(current_user, 'cart_add', f'Added book #{book_id} to cart')
         
         # Get updated cart count
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
@@ -52,7 +56,7 @@ def add_to_cart():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error in add_to_cart: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
 
 @cart.route('/cart')
 @login_required
@@ -71,8 +75,10 @@ def view_cart():
 def update_cart_quantity(item_id):
     try:
         data = request.get_json()
-        quantity = int(data.get('quantity', 0))
+        if not data or 'quantity' not in data:
+            return jsonify({'success': False, 'error': 'Invalid request data'}), 400
 
+        quantity = int(data['quantity'])
         if quantity < 0:
             return jsonify({'success': False, 'error': 'Invalid quantity'}), 400
 
@@ -96,7 +102,7 @@ def update_cart_quantity(item_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating cart quantity: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
 
 @cart.route('/cart/remove/<int:item_id>', methods=['POST'])
 @login_required
@@ -116,4 +122,4 @@ def remove_from_cart(item_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error removing from cart: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to remove item'}), 500
