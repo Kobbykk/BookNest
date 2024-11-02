@@ -1,28 +1,35 @@
 // Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // Update cart count
     function updateCartCount() {
-        fetch('/cart/count')
-            .then(response => {
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        // If unauthorized, just show 0 items
-                        updateCartBadge(0);
-                        return;
-                    }
-                    throw new Error('Network response was not ok');
+        fetch('/cart/count', {
+            headers: {
+                'X-CSRF-Token': csrfToken
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // If unauthorized, just show 0 items
+                    updateCartBadge(0);
+                    return;
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data && data.success) {
-                    updateCartBadge(data.count);
-                }
-            })
-            .catch(error => {
-                console.warn('Unable to fetch cart count:', error);
-                // On error, don't update the badge
-            });
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.success) {
+                updateCartBadge(data.count);
+            }
+        })
+        .catch(error => {
+            console.warn('Error fetching cart count:', error);
+            // On error, don't update the badge
+        });
     }
 
     function updateCartBadge(count) {
@@ -43,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({ book_id: bookId, quantity: 1 })
             })
@@ -86,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({ quantity: newQuantity })
             })
@@ -131,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 }
             })
             .then(response => {

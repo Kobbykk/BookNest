@@ -51,23 +51,33 @@ def add_to_cart():
             book_id=book_id
         ).first()
 
-        if cart_item:
-            new_quantity = cart_item.quantity + quantity
-            if new_quantity > book.stock:
-                return jsonify({'success': False, 'error': 'Not enough stock available'}), 400
-            cart_item.quantity = new_quantity
-        else:
-            cart_item = CartItem(
-                user_id=current_user.id,
-                book_id=book_id,
-                quantity=quantity
-            )
-            db.session.add(cart_item)
+        try:
+            if cart_item:
+                new_quantity = cart_item.quantity + quantity
+                if new_quantity > book.stock:
+                    return jsonify({'success': False, 'error': 'Not enough stock available'}), 400
+                cart_item.quantity = new_quantity
+            else:
+                cart_item = CartItem(
+                    user_id=current_user.id,
+                    book_id=book_id,
+                    quantity=quantity
+                )
+                db.session.add(cart_item)
 
-        db.session.commit()
-        log_user_activity(current_user, 'cart_add', f'Added book #{book_id} to cart')
-        
-        return jsonify({'success': True})
+            db.session.commit()
+            log_user_activity(current_user, 'cart_add', f'Added book #{book_id} to cart')
+            
+            # Get updated cart count
+            total_count = db.session.query(
+                func.coalesce(func.sum(CartItem.quantity), 0)
+            ).filter_by(user_id=current_user.id).scalar() or 0
+            
+            return jsonify({'success': True, 'count': int(total_count)})
+        except Exception as e:
+            db.session.rollback()
+            raise e
+            
     except Exception as e:
         current_app.logger.error(f"Error adding to cart: {str(e)}")
         db.session.rollback()
@@ -101,17 +111,27 @@ def update_cart_quantity(item_id):
         if not cart_item:
             return jsonify({'success': False, 'error': 'Item not found'}), 404
 
-        if quantity == 0:
-            db.session.delete(cart_item)
-        else:
-            if quantity > cart_item.book.stock:
-                return jsonify({'success': False, 'error': 'Not enough stock available'}), 400
-            cart_item.quantity = quantity
+        try:
+            if quantity == 0:
+                db.session.delete(cart_item)
+            else:
+                if quantity > cart_item.book.stock:
+                    return jsonify({'success': False, 'error': 'Not enough stock available'}), 400
+                cart_item.quantity = quantity
 
-        db.session.commit()
-        log_user_activity(current_user, 'cart_update', f'Updated quantity for book #{cart_item.book_id}')
-        
-        return jsonify({'success': True})
+            db.session.commit()
+            log_user_activity(current_user, 'cart_update', f'Updated quantity for book #{cart_item.book_id}')
+            
+            # Get updated cart count
+            total_count = db.session.query(
+                func.coalesce(func.sum(CartItem.quantity), 0)
+            ).filter_by(user_id=current_user.id).scalar() or 0
+            
+            return jsonify({'success': True, 'count': int(total_count)})
+        except Exception as e:
+            db.session.rollback()
+            raise e
+            
     except Exception as e:
         current_app.logger.error(f"Error updating cart: {str(e)}")
         db.session.rollback()
@@ -126,11 +146,21 @@ def remove_from_cart(item_id):
         if not cart_item:
             return jsonify({'success': False, 'error': 'Item not found'}), 404
 
-        db.session.delete(cart_item)
-        db.session.commit()
-        log_user_activity(current_user, 'cart_remove', f'Removed book #{cart_item.book_id} from cart')
-        
-        return jsonify({'success': True})
+        try:
+            db.session.delete(cart_item)
+            db.session.commit()
+            log_user_activity(current_user, 'cart_remove', f'Removed book #{cart_item.book_id} from cart')
+            
+            # Get updated cart count
+            total_count = db.session.query(
+                func.coalesce(func.sum(CartItem.quantity), 0)
+            ).filter_by(user_id=current_user.id).scalar() or 0
+            
+            return jsonify({'success': True, 'count': int(total_count)})
+        except Exception as e:
+            db.session.rollback()
+            raise e
+            
     except Exception as e:
         current_app.logger.error(f"Error removing from cart: {str(e)}")
         db.session.rollback()
