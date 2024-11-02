@@ -5,7 +5,9 @@ from utils.activity_logger import log_user_activity
 from sqlalchemy import func
 import stripe
 from datetime import datetime
+import logging
 
+logger = logging.getLogger(__name__)
 cart = Blueprint('cart', __name__)
 
 @cart.route('/cart/count')
@@ -17,7 +19,8 @@ def get_cart_count():
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
-        db.session.rollback()  # Add rollback on error
+        db.session.rollback()
+        logger.error(f"Error in get_cart_count: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @cart.route('/cart/add', methods=['POST'])
@@ -48,18 +51,18 @@ def add_to_cart():
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error in add_to_cart: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @cart.route('/cart')
 @login_required
 def view_cart():
-    """View cart contents. Requires authentication."""
     try:
         cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
         total = sum(item.total for item in cart_items)
         return render_template('cart/cart.html', cart_items=cart_items, total=total)
     except Exception as e:
-        current_app.logger.error(f"Error viewing cart: {str(e)}")
+        logger.error(f"Error viewing cart: {str(e)}")
         flash('An error occurred while loading your cart.', 'danger')
         return redirect(url_for('main.index'))
 
@@ -92,6 +95,7 @@ def update_cart_quantity(item_id):
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error updating cart quantity: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @cart.route('/cart/remove/<int:item_id>', methods=['POST'])
@@ -111,4 +115,5 @@ def remove_from_cart(item_id):
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error removing from cart: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500

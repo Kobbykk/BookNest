@@ -6,14 +6,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update cart count
     function updateCartCount() {
-        fetch('/cart/count', {
-            headers: {
-                'X-CSRF-Token': csrfToken
-            }
-        })
+        fetch('/cart/count')
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
@@ -21,12 +17,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 updateCartBadge(data.count);
             } else {
-                console.warn('Server error:', data.error);
+                console.error('Server error:', data.error);
             }
         })
         .catch(error => {
-            console.warn('Error fetching cart count:', error);
-            // On error, don't update the badge
+            console.error('Error fetching cart count:', error);
+            // Don't update badge on error
         });
     }
 
@@ -56,12 +52,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ book_id: bookId })
             })
             .then(response => {
-                if (response.status === 401) {
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                    return null;
-                }
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    if (response.status === 401) {
+                        window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                        return null;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
@@ -110,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
@@ -152,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
