@@ -17,7 +17,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
-            headers: headers
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken || ''
+            }
         })
         .then(response => {
             if (!response.ok) {

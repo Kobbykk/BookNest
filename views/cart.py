@@ -37,6 +37,25 @@ def view_cart():
         flash('An error occurred while loading your cart.', 'danger')
         return redirect(url_for('main.index'))
 
+@cart.route('/cart/checkout')
+@login_required
+def checkout():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty.', 'warning')
+            return redirect(url_for('main.index'))
+            
+        total = sum(item.total for item in cart_items)
+        return render_template('cart/checkout.html', 
+                             cart_items=cart_items,
+                             total=total,
+                             stripe_publishable_key=current_app.config['STRIPE_PUBLISHABLE_KEY'])
+    except Exception as e:
+        logger.error(f"Error in checkout: {str(e)}")
+        flash('An error occurred while processing your request.', 'danger')
+        return redirect(url_for('main.index'))
+
 @cart.route('/cart/add', methods=['POST'])
 @login_required
 def add_to_cart():
