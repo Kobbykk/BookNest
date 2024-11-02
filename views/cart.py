@@ -23,6 +23,38 @@ def get_cart_count():
         logger.error(f"Error in get_cart_count: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to fetch cart count'}), 500
 
+@cart.route('/cart')
+@login_required
+def view_cart():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        total = sum(item.total for item in cart_items)
+        return render_template('cart/cart.html', cart_items=cart_items, total=total)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error viewing cart: {str(e)}")
+        flash('An error occurred while loading your cart.', 'danger')
+        return redirect(url_for('main.index'))
+
+@cart.route('/checkout')
+@login_required
+def checkout():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty.', 'warning')
+            return redirect(url_for('main.index'))
+            
+        total = sum(item.total for item in cart_items)
+        return render_template('cart/checkout.html', 
+                             cart_items=cart_items,
+                             total=total,
+                             stripe_publishable_key=current_app.config['STRIPE_PUBLISHABLE_KEY'])
+    except Exception as e:
+        logger.error(f"Error in checkout: {str(e)}")
+        flash('An error occurred while processing your request.', 'danger')
+        return redirect(url_for('main.index'))
+
 @cart.route('/cart/add', methods=['POST'])
 @login_required
 def add_to_cart():
@@ -50,25 +82,12 @@ def add_to_cart():
         db.session.commit()
         log_user_activity(current_user, 'cart_add', f'Added book #{book_id} to cart')
         
-        # Get updated cart count
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error in add_to_cart: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
-
-@cart.route('/cart')
-@login_required
-def view_cart():
-    try:
-        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
-        total = sum(item.total for item in cart_items)
-        return render_template('cart/cart.html', cart_items=cart_items, total=total)
-    except Exception as e:
-        logger.error(f"Error viewing cart: {str(e)}")
-        flash('An error occurred while loading your cart.', 'danger')
-        return redirect(url_for('main.index'))
 
 @cart.route('/cart/update/<int:item_id>', methods=['POST'])
 @login_required
@@ -96,7 +115,6 @@ def update_cart_quantity(item_id):
         db.session.commit()
         log_user_activity(current_user, 'cart_update', f'Updated quantity for book #{cart_item.book_id}')
         
-        # Get updated cart count
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
@@ -116,7 +134,6 @@ def remove_from_cart(item_id):
         db.session.commit()
         log_user_activity(current_user, 'cart_remove', f'Removed book #{cart_item.book_id} from cart')
         
-        # Get updated cart count
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:

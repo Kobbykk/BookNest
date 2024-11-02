@@ -11,20 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update cart count
     function updateCartCount() {
-        if (!csrfToken) {
-            console.warn('CSRF token not found, skipping cart count update');
-            return;
-        }
-
         fetch('/cart/count', {
-            headers: headers
+            headers: {
+                'X-CSRF-Token': csrfToken || ''
+            }
         })
         .then(response => {
             if (!response.ok) {
-                if (response.status === 401) {
-                    // User not authenticated, don't show error
-                    return { success: true, count: 0 };
-                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
@@ -38,7 +31,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error fetching cart count:', error);
-            // Don't update badge on error
         });
     }
 
@@ -89,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateCartBadge(data.count);
                     showToast('Success', 'Book added to cart!', 'success');
                 } else {
-                    showToast('Error', data.error || 'Failed to add book to cart', 'danger');
+                    throw new Error(data.error || 'Failed to add book to cart');
                 }
             })
             .catch(error => {
@@ -206,15 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toast notification function
     function showToast(title, message, type = 'info') {
         const toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) {
-            const container = document.createElement('div');
-            container.id = 'toast-container';
-            container.style.position = 'fixed';
-            container.style.top = '20px';
-            container.style.right = '20px';
-            container.style.zIndex = '1050';
-            document.body.appendChild(container);
-        }
+        if (!toastContainer) return;
         
         const toast = document.createElement('div');
         toast.className = `toast align-items-center text-white bg-${type} border-0`;
@@ -232,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        document.getElementById('toast-container').appendChild(toast);
+        toastContainer.appendChild(toast);
         
         const bsToast = new bootstrap.Toast(toast, {
             autohide: true,
