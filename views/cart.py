@@ -15,13 +15,14 @@ def get_cart_count():
     try:
         if not current_user.is_authenticated:
             return jsonify({'success': True, 'count': 0})
-        
+            
+        # Use with_entities to avoid loading full CartItem objects
         count = CartItem.query.filter_by(user_id=current_user.id).with_entities(func.sum(CartItem.quantity)).scalar() or 0
         return jsonify({'success': True, 'count': int(count)})
     except Exception as e:
-        db.session.rollback()
         logger.error(f"Error in get_cart_count: {str(e)}")
-        return jsonify({'success': False, 'error': 'Failed to fetch cart count'}), 500
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @cart.route('/cart')
 @login_required
@@ -36,25 +37,6 @@ def view_cart():
         flash('An error occurred while loading your cart.', 'danger')
         return redirect(url_for('main.index'))
 
-@cart.route('/checkout')
-@login_required
-def checkout():
-    try:
-        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
-        if not cart_items:
-            flash('Your cart is empty.', 'warning')
-            return redirect(url_for('main.index'))
-            
-        total = sum(item.total for item in cart_items)
-        return render_template('cart/checkout.html', 
-                             cart_items=cart_items,
-                             total=total,
-                             stripe_publishable_key=current_app.config['STRIPE_PUBLISHABLE_KEY'])
-    except Exception as e:
-        logger.error(f"Error in checkout: {str(e)}")
-        flash('An error occurred while processing your request.', 'danger')
-        return redirect(url_for('main.index'))
-
 @cart.route('/cart/add', methods=['POST'])
 @login_required
 def add_to_cart():
@@ -62,7 +44,7 @@ def add_to_cart():
         data = request.get_json()
         if not data or 'book_id' not in data:
             return jsonify({'success': False, 'error': 'Invalid request data'}), 400
-
+            
         book_id = data['book_id']
         book = Book.query.get_or_404(book_id)
         
@@ -78,7 +60,7 @@ def add_to_cart():
         else:
             cart_item = CartItem(user_id=current_user.id, book_id=book_id, quantity=1)
             db.session.add(cart_item)
-        
+            
         db.session.commit()
         log_user_activity(current_user, 'cart_add', f'Added book #{book_id} to cart')
         

@@ -1,7 +1,12 @@
 // Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Get CSRF token from meta tag
+    // Get CSRF token from meta tag at the start
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    // Add error handling for missing CSRF token
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+    }
 
     // Common headers for all fetch requests
     const headers = {
@@ -12,9 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
-            headers: {
-                'X-CSRF-Token': csrfToken || ''
-            }
+            headers: headers
         })
         .then(response => {
             if (!response.ok) {
@@ -26,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 updateCartBadge(data.count);
             } else {
-                console.error('Server error:', data.error);
+                throw new Error(data.error || 'Failed to update cart count');
             }
         })
         .catch(error => {
@@ -47,11 +50,6 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(event) {
             event.preventDefault();
             
-            if (!csrfToken) {
-                showToast('Error', 'Session expired. Please refresh the page.', 'danger');
-                return;
-            }
-
             const bookId = this.dataset.bookId;
             
             // Disable button while processing
@@ -100,12 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let previousValue = input.value;
         
         input.addEventListener('change', function() {
-            if (!csrfToken) {
-                showToast('Error', 'Session expired. Please refresh the page.', 'danger');
-                this.value = previousValue;
-                return;
-            }
-
             const itemId = this.dataset.itemId;
             const newQuantity = parseInt(this.value);
             
@@ -151,11 +143,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Remove from cart functionality
     document.querySelectorAll('.remove-item').forEach(button => {
         button.addEventListener('click', function() {
-            if (!csrfToken) {
-                showToast('Error', 'Session expired. Please refresh the page.', 'danger');
-                return;
-            }
-
             const itemId = this.dataset.itemId;
             
             // Disable button while processing
