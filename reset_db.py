@@ -19,25 +19,9 @@ def reset_database():
                 ReadingList, ReadingListItem, BookFormat
             )
             
-            # Order matters due to foreign key relationships
-            tables_order = [
-                User.__table__,
-                Category.__table__,
-                Book.__table__,
-                BookFormat.__table__,
-                Order.__table__,
-                OrderItem.__table__,
-                Review.__table__,
-                CartItem.__table__,
-                UserActivity.__table__,
-                Wishlist.__table__,
-                ReadingList.__table__,
-                ReadingListItem.__table__
-            ]
-            
-            for table in tables_order:
-                table.create(db.engine)
-                print(f"Created table: {table.name}")
+            # Create tables in correct order
+            db.create_all()
+            print("All tables created successfully")
             
             # Create admin user
             from werkzeug.security import generate_password_hash

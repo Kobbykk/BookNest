@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, render_template
 import logging
 from extensions import db, login_manager, mail
 
@@ -22,7 +22,9 @@ def create_app():
         MAIL_USE_TLS=True,
         MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
         MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
-        MAIL_DEFAULT_SENDER=os.environ.get('MAIL_USERNAME')
+        MAIL_DEFAULT_SENDER=os.environ.get('MAIL_USERNAME'),
+        STRIPE_PUBLISHABLE_KEY=os.environ.get('STRIPE_PUBLISHABLE_KEY'),
+        STRIPE_SECRET_KEY=os.environ.get('STRIPE_SECRET_KEY')
     )
     
     # Initialize extensions with app
@@ -38,7 +40,7 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         from models import User
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
     
     # Register blueprints
     from views.auth import auth
@@ -51,19 +53,26 @@ def create_app():
     app.register_blueprint(admin)
     app.register_blueprint(cart)
     
+    # Error handlers
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return render_template('errors/500.html'), 500
+    
+    # Ensure database tables exist
     with app.app_context():
-        try:
-            # Create all tables
-            db.create_all()
-            logging.info("All database tables created successfully")
-            
-        except Exception as e:
-            logging.error(f"Error creating database tables: {str(e)}")
-            raise e
+        db.create_all()
+        # Validate Stripe configuration
+        if not app.config.get('STRIPE_SECRET_KEY') or not app.config.get('STRIPE_PUBLISHABLE_KEY'):
+            app.logger.warning('Stripe API keys are not configured properly')
     
     return app
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
