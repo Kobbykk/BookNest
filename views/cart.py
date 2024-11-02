@@ -56,6 +56,49 @@ def checkout():
         flash('An error occurred while processing your request.', 'danger')
         return redirect(url_for('main.index'))
 
+@cart.route('/cart/create-payment-intent', methods=['POST'])
+@login_required
+def create_payment_intent():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            return jsonify({'success': False, 'error': 'Cart is empty'}), 400
+            
+        total = sum(item.total for item in cart_items)
+        
+        # Verify stock availability
+        for item in cart_items:
+            if item.quantity > item.book.stock:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Not enough stock available for {item.book.title}'
+                }), 400
+        
+        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
+        
+        # Create payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=int(total * 100),  # Convert to cents
+            currency='usd',
+            payment_method_types=['card'],
+            metadata={
+                'user_id': current_user.id,
+                'cart_items': ','.join(str(item.id) for item in cart_items)
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'clientSecret': intent.client_secret
+        })
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error creating payment intent: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to initialize payment'}), 500
+
 @cart.route('/cart/add', methods=['POST'])
 @login_required
 def add_to_cart():
