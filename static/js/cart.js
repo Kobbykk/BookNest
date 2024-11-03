@@ -2,6 +2,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token from meta tag at the start
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    // Add error handling for missing CSRF token
     if (!csrfToken) {
         console.error('CSRF token not found');
     }
