@@ -1,9 +1,7 @@
 // Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Get CSRF token from meta tag at the start
+    // Get CSRF token from meta tag
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-    // Add error handling for missing CSRF token
     if (!csrfToken) {
         console.error('CSRF token not found');
     }
@@ -11,10 +9,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-CSRF-Token': csrfToken || ''
-            }
+            },
+            credentials: 'same-origin'
         })
         .then(response => {
             if (!response.ok) {
@@ -24,40 +24,35 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             if (data.success) {
-                updateCartBadge(data.count);
+                const cartCount = document.getElementById('cart-count');
+                if (cartCount) {
+                    cartCount.textContent = data.count;
+                    cartCount.style.display = data.count > 0 ? 'inline' : 'none';
+                }
             } else {
                 throw new Error(data.error || 'Failed to update cart count');
             }
         })
         .catch(error => {
-            console.error('Error fetching cart count:', error);
+            console.error('Error fetching cart count:', error.message);
         });
-    }
-
-    function updateCartBadge(count) {
-        const cartCount = document.getElementById('cart-count');
-        if (cartCount) {
-            cartCount.textContent = count;
-            cartCount.style.display = count > 0 ? 'inline' : 'none';
-        }
     }
 
     // Add to cart functionality
     document.querySelectorAll('.add-to-cart').forEach(button => {
         button.addEventListener('click', function(event) {
             event.preventDefault();
-            
             const bookId = this.dataset.bookId;
-            
-            // Disable button while processing
             this.disabled = true;
-            
+
             fetch('/cart/add', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'X-CSRF-Token': csrfToken || ''
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({ book_id: bookId })
             })
             .then(response => {
@@ -76,18 +71,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!data) return;
                 
                 if (data.success) {
-                    updateCartBadge(data.count);
+                    updateCartCount();
                     showToast('Success', 'Book added to cart!', 'success');
                 } else {
                     throw new Error(data.error || 'Failed to add book to cart');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to add book to cart', 'danger');
             })
             .finally(() => {
-                // Re-enable button after processing
                 this.disabled = false;
             });
         });
@@ -111,8 +105,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'X-CSRF-Token': csrfToken || ''
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({ quantity: newQuantity })
             })
             .then(response => {
@@ -125,18 +121,23 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.success) {
-                    updateCartBadge(data.count);
+                    updateCartCount();
                     if (newQuantity === 0) {
                         window.location.reload();
                     } else {
                         previousValue = newQuantity;
+                        // Update total price if on cart page
+                        const totalElement = document.querySelector('td[colspan="2"] strong');
+                        if (totalElement && data.total) {
+                            totalElement.textContent = `$${data.total.toFixed(2)}`;
+                        }
                     }
                 } else {
                     throw new Error(data.error || 'Failed to update cart');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to update cart', 'danger');
                 this.value = previousValue;
             });
@@ -147,16 +148,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.remove-item').forEach(button => {
         button.addEventListener('click', function() {
             const itemId = this.dataset.itemId;
-            
-            // Disable button while processing
             this.disabled = true;
-            
+
             fetch(`/cart/remove/${itemId}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'X-CSRF-Token': csrfToken || ''
-                }
+                },
+                credentials: 'same-origin'
             })
             .then(response => {
                 if (!response.ok) {
@@ -168,18 +168,23 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.success) {
-                    updateCartBadge(data.count);
-                    window.location.reload();
+                    updateCartCount();
+                    const row = this.closest('tr');
+                    if (row) {
+                        row.remove();
+                        if (data.count === 0) {
+                            window.location.reload();
+                        }
+                    }
                 } else {
                     throw new Error(data.error || 'Failed to remove item');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to remove item', 'danger');
             })
             .finally(() => {
-                // Re-enable button after processing
                 this.disabled = false;
             });
         });
