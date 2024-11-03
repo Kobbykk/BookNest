@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const buttonText = document.getElementById('button-text');
     const errorDisplay = document.getElementById('payment-error');
     const initErrorDisplay = document.getElementById('initialization-error');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     let elements = null;
     let retryCount = 0;
     const MAX_RETRIES = 3;
@@ -88,6 +89,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     function clearError() {
         errorDisplay.textContent = '';
         errorDisplay.classList.add('d-none');
+        initErrorDisplay.classList.add('d-none');
     }
 
     function setLoading(isLoading) {
@@ -103,12 +105,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const response = await fetch('/cart/create-payment-intent', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
+                }
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
-            
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.error || 'Failed to initialize payment');
             }
 
@@ -130,20 +138,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const paymentElement = elements.create('payment');
             await paymentElement.mount('#payment-element');
-            
-            // Enable submit button only after successful initialization
             submitButton.disabled = false;
-            setLoading(false);
-
+            
         } catch (error) {
             console.error('Initialization error:', error);
-            if (retryCount < MAX_RETRIES) {
-                retryCount++;
-                setTimeout(initialize, 2000); // Retry after 2 seconds
-            } else {
-                initErrorDisplay.classList.remove('d-none');
-                submitButton.disabled = true;
-            }
+            initErrorDisplay.classList.remove('d-none');
+            submitButton.disabled = true;
+        } finally {
             setLoading(false);
         }
     }

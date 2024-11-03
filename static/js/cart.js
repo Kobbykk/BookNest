@@ -8,12 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('CSRF token not found');
     }
 
-    // Common headers for all fetch requests
-    const headers = {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrfToken || ''
-    };
-
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
@@ -60,7 +54,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fetch('/cart/add', {
                 method: 'POST',
-                headers: headers,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
+                },
                 body: JSON.stringify({ book_id: bookId })
             })
             .then(response => {
@@ -112,7 +109,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             fetch(`/cart/update/${itemId}`, {
                 method: 'POST',
-                headers: headers,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
+                },
                 body: JSON.stringify({ quantity: newQuantity })
             })
             .then(response => {
@@ -153,7 +153,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fetch(`/cart/remove/${itemId}`, {
                 method: 'POST',
-                headers: headers
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
+                }
             })
             .then(response => {
                 if (!response.ok) {
