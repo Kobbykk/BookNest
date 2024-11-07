@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
-            method: 'GET',
             headers: {
+                'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
                 'X-CSRF-Token': csrfToken || ''
             },
@@ -34,7 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error fetching cart count:', error.message);
+            console.error('Error fetching cart count:', error);
+            // Don't update badge on error
         });
     }
 
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
                     'X-CSRF-Token': csrfToken || ''
                 },
@@ -80,109 +82,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to add book to cart', 'danger');
-            })
-            .finally(() => {
-                this.disabled = false;
-            });
-        });
-    });
-
-    // Cart quantity update functionality
-    document.querySelectorAll('.cart-quantity').forEach(input => {
-        let previousValue = input.value;
-        
-        input.addEventListener('change', function() {
-            const itemId = this.dataset.itemId;
-            const newQuantity = parseInt(this.value);
-            
-            if (isNaN(newQuantity) || newQuantity < 0) {
-                showToast('Error', 'Invalid quantity', 'danger');
-                this.value = previousValue;
-                return;
-            }
-
-            fetch(`/cart/update/${itemId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-Token': csrfToken || ''
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ quantity: newQuantity })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
-                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    updateCartCount();
-                    if (newQuantity === 0) {
-                        window.location.reload();
-                    } else {
-                        previousValue = newQuantity;
-                        // Update total price if on cart page
-                        const totalElement = document.querySelector('td[colspan="2"] strong');
-                        if (totalElement && data.total) {
-                            totalElement.textContent = `$${data.total.toFixed(2)}`;
-                        }
-                    }
-                } else {
-                    throw new Error(data.error || 'Failed to update cart');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error.message);
-                showToast('Error', error.message || 'Failed to update cart', 'danger');
-                this.value = previousValue;
-            });
-        });
-    });
-
-    // Remove from cart functionality
-    document.querySelectorAll('.remove-item').forEach(button => {
-        button.addEventListener('click', function() {
-            const itemId = this.dataset.itemId;
-            this.disabled = true;
-
-            fetch(`/cart/remove/${itemId}`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-Token': csrfToken || ''
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
-                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    updateCartCount();
-                    const row = this.closest('tr');
-                    if (row) {
-                        row.remove();
-                        if (data.count === 0) {
-                            window.location.reload();
-                        }
-                    }
-                } else {
-                    throw new Error(data.error || 'Failed to remove item');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error.message);
-                showToast('Error', error.message || 'Failed to remove item', 'danger');
             })
             .finally(() => {
                 this.disabled = false;

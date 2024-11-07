@@ -54,7 +54,8 @@ def create_app():
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         PERMANENT_SESSION_LIFETIME=3600,
-        WTF_CSRF_ENABLED=True
+        WTF_CSRF_ENABLED=True,
+        WTF_CSRF_TIME_LIMIT=None  # Set to None to prevent CSRF token expiration
     )
     
     # Initialize extensions with app
@@ -101,32 +102,7 @@ def create_app():
         db.session.rollback()
         return render_template('errors/500.html'), 500
     
-    # Define public routes that don't require authentication
-    public_routes = [
-        'static',
-        'auth.login',
-        'auth.register',
-        'auth.logout',
-        'main.index',
-        'main.book_detail',
-        'cart.get_cart_count'
-    ]
-
-    @app.before_request
-    def require_login():
-        # Skip authentication for public routes
-        if not request.endpoint:
-            return
-            
-        if any(request.endpoint == route or request.endpoint.startswith(f"{route}.") 
-               for route in public_routes):
-            return
-            
-        # Require login for all other routes
-        if not current_user.is_authenticated:
-            flash('Please log in to access this page.', 'info')
-            return redirect(url_for('auth.login', next=request.url))
-
+    # Add security headers
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -147,4 +123,10 @@ if __name__ == "__main__":
             logger.error(f"Error creating database tables: {str(e)}")
             raise e
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Add host and port configuration
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=True,
+        use_reloader=True
+    )
