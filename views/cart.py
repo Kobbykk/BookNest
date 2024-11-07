@@ -33,14 +33,128 @@ def checkout():
             return redirect(url_for('main.index'))
             
         total = sum(item.total for item in cart_items)
+        stripe_key = current_app.config.get('STRIPE_PUBLISHABLE_KEY')
+        if not stripe_key:
+            flash('Payment system is not properly configured.', 'danger')
+            return redirect(url_for('cart.view_cart'))
+            
         return render_template('cart/checkout.html', 
                              cart_items=cart_items,
                              total=total,
-                             stripe_publishable_key=current_app.config['STRIPE_PUBLISHABLE_KEY'])
+                             stripe_publishable_key=stripe_key)
     except Exception as e:
         logger.error(f"Error in checkout: {str(e)}")
         flash('An error occurred while processing your request.', 'danger')
         return redirect(url_for('main.index'))
+
+@cart.route('/create-payment-intent', methods=['POST'])
+@login_required
+def create_payment_intent():
+    try:
+        if not request.is_json:
+            return jsonify({'success': False, 'error': 'Invalid request format'}), 400
+
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+        if not stripe.api_key:
+            logger.error("Stripe secret key not configured")
+            return jsonify({'success': False, 'error': 'Payment system not properly configured'}), 500
+
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            return jsonify({'success': False, 'error': 'Cart is empty'}), 400
+
+        total = sum(item.total for item in cart_items)
+        amount = int(total * 100)  # Convert to cents for Stripe
+
+        # Create payment intent
+        try:
+            intent = stripe.PaymentIntent.create(
+                amount=amount,
+                currency='usd',
+                metadata={
+                    'user_id': current_user.id,
+                    'email': current_user.email
+                }
+            )
+            return jsonify({
+                'success': True,
+                'clientSecret': intent.client_secret
+            })
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Error creating payment intent: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to initialize payment'}), 500
+
+@cart.route('/payment-complete')
+@login_required
+def payment_complete():
+    try:
+        payment_intent_id = request.args.get('payment_intent')
+        if not payment_intent_id:
+            flash('Invalid payment session.', 'danger')
+            return redirect(url_for('cart.checkout'))
+
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+        try:
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error: {str(e)}")
+            flash('Failed to verify payment.', 'danger')
+            return redirect(url_for('cart.checkout'))
+
+        if payment_intent.status != 'succeeded':
+            flash('Payment was not successful.', 'danger')
+            return redirect(url_for('cart.checkout'))
+
+        # Create order
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        total = sum(item.total for item in cart_items)
+
+        order = Order(
+            user_id=current_user.id,
+            total=total,
+            status='processing',
+            payment_intent_id=payment_intent_id,
+            payment_status='paid',
+            payment_method='card',
+            payment_date=datetime.utcnow()
+        )
+
+        # Add order items and update stock
+        for cart_item in cart_items:
+            order_item = OrderItem(
+                book_id=cart_item.book_id,
+                quantity=cart_item.quantity,
+                price=cart_item.book.price
+            )
+            order.items.append(order_item)
+            
+            # Update stock
+            cart_item.book.stock -= cart_item.quantity
+            if cart_item.book.stock < 0:
+                db.session.rollback()
+                flash('Some items in your cart are no longer available.', 'danger')
+                return redirect(url_for('cart.view_cart'))
+
+        # Clear cart
+        for item in cart_items:
+            db.session.delete(item)
+
+        db.session.add(order)
+        db.session.commit()
+
+        log_user_activity(current_user, 'order_created', f'Created order #{order.id}')
+        flash('Thank you for your purchase! Your order has been placed.', 'success')
+        return redirect(url_for('main.orders'))
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error completing payment: {str(e)}")
+        flash('An error occurred while processing your payment.', 'danger')
+        return redirect(url_for('cart.checkout'))
 
 @cart.route('/count')
 def get_cart_count():
@@ -59,6 +173,9 @@ def get_cart_count():
 @login_required
 def add_to_cart():
     try:
+        if not request.is_json:
+            return jsonify({'success': False, 'error': 'Invalid request format'}), 400
+            
         data = request.get_json()
         if not data or 'book_id' not in data:
             return jsonify({'success': False, 'error': 'Invalid request data'}), 400
@@ -93,6 +210,9 @@ def add_to_cart():
 @login_required
 def update_cart(item_id):
     try:
+        if not request.is_json:
+            return jsonify({'success': False, 'error': 'Invalid request format'}), 400
+            
         data = request.get_json()
         if not data or 'quantity' not in data:
             return jsonify({'success': False, 'error': 'Invalid request data'}), 400
