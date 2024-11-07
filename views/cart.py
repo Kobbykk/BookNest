@@ -10,6 +10,19 @@ import logging
 logger = logging.getLogger(__name__)
 cart = Blueprint('cart', __name__)
 
+@cart.route('/cart')
+@login_required
+def view_cart():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        total = sum(item.total for item in cart_items)
+        return render_template('cart/cart.html', cart_items=cart_items, total=total)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error viewing cart: {str(e)}")
+        flash('An error occurred while loading your cart.', 'danger')
+        return redirect(url_for('main.index'))
+
 @cart.route('/cart/count')
 def get_cart_count():
     try:
