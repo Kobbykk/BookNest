@@ -8,9 +8,9 @@ from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
-cart = Blueprint('cart', __name__)
+cart = Blueprint('cart', __name__, url_prefix='/cart')
 
-@cart.route('/cart')
+@cart.route('/')  # Changed from '/cart' to '/' since we have url_prefix
 @login_required
 def view_cart():
     try:
@@ -23,7 +23,7 @@ def view_cart():
         flash('An error occurred while loading your cart.', 'danger')
         return redirect(url_for('main.index'))
 
-@cart.route('/cart/count')
+@cart.route('/count')  # Updated route path
 def get_cart_count():
     try:
         if not current_user.is_authenticated:
@@ -36,7 +36,7 @@ def get_cart_count():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@cart.route('/cart/add', methods=['POST'])
+@cart.route('/add', methods=['POST'])  # Updated route path
 @login_required
 def add_to_cart():
     try:
@@ -70,7 +70,7 @@ def add_to_cart():
         logger.error(f"Error in add_to_cart: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
 
-@cart.route('/cart/update/<int:item_id>', methods=['POST'])
+@cart.route('/update/<int:item_id>', methods=['POST'])  # Updated route path
 @login_required
 def update_cart(item_id):
     try:
@@ -110,7 +110,7 @@ def update_cart(item_id):
         logger.error(f"Error updating cart: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
 
-@cart.route('/cart/remove/<int:item_id>', methods=['POST'])
+@cart.route('/remove/<int:item_id>', methods=['POST'])  # Updated route path
 @login_required
 def remove_from_cart(item_id):
     try:
