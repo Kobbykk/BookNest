@@ -9,41 +9,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update cart count
     function updateCartCount() {
         fetch('/cart/count', {
-            method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
-                'X-CSRF-Token': csrfToken || '',
-                'Cache-Control': 'no-cache'
+                'X-CSRF-Token': csrfToken || ''
             },
             credentials: 'same-origin'
         })
         .then(response => {
-            if (response.status === 401) {
-                // User is not authenticated, hide cart count
-                const cartCount = document.getElementById('cart-count');
-                if (cartCount) {
-                    cartCount.style.display = 'none';
-                }
-                return null;
-            }
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            if (!data) return;
-            
-            const cartCount = document.getElementById('cart-count');
-            if (cartCount && data.success) {
-                cartCount.textContent = data.count;
-                cartCount.style.display = data.count > 0 ? 'inline' : 'none';
+            if (data.success) {
+                const cartCount = document.getElementById('cart-count');
+                if (cartCount) {
+                    cartCount.textContent = data.count;
+                    cartCount.style.display = data.count > 0 ? 'inline' : 'none';
+                }
+            } else {
+                throw new Error(data.error || 'Failed to update cart count');
             }
         })
         .catch(error => {
             console.error('Error fetching cart count:', error);
-            // Don't update badge on error, but also don't show the error to user
         });
     }
 
@@ -52,10 +43,6 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(event) {
             event.preventDefault();
             const bookId = this.dataset.bookId;
-            if (!bookId) {
-                console.error('Book ID not found');
-                return;
-            }
             
             this.disabled = true;
 
@@ -173,11 +160,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.remove-item').forEach(button => {
         button.addEventListener('click', function() {
             const itemId = this.dataset.itemId;
-            if (!itemId) {
-                console.error('Item ID not found');
-                return;
-            }
-            
             this.disabled = true;
 
             fetch(`/cart/remove/${itemId}`, {

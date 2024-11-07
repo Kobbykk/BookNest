@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 cart = Blueprint('cart', __name__, url_prefix='/cart')
 
-@cart.route('/')  # Changed from '/cart' to '/' since we have url_prefix
+@cart.route('/')
 @login_required
 def view_cart():
     try:
@@ -23,7 +23,26 @@ def view_cart():
         flash('An error occurred while loading your cart.', 'danger')
         return redirect(url_for('main.index'))
 
-@cart.route('/count')  # Updated route path
+@cart.route('/checkout')
+@login_required
+def checkout():
+    try:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        if not cart_items:
+            flash('Your cart is empty.', 'warning')
+            return redirect(url_for('main.index'))
+            
+        total = sum(item.total for item in cart_items)
+        return render_template('cart/checkout.html', 
+                             cart_items=cart_items,
+                             total=total,
+                             stripe_publishable_key=current_app.config['STRIPE_PUBLISHABLE_KEY'])
+    except Exception as e:
+        logger.error(f"Error in checkout: {str(e)}")
+        flash('An error occurred while processing your request.', 'danger')
+        return redirect(url_for('main.index'))
+
+@cart.route('/count')
 def get_cart_count():
     try:
         if not current_user.is_authenticated:
@@ -36,7 +55,7 @@ def get_cart_count():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@cart.route('/add', methods=['POST'])  # Updated route path
+@cart.route('/add', methods=['POST'])
 @login_required
 def add_to_cart():
     try:
@@ -70,7 +89,7 @@ def add_to_cart():
         logger.error(f"Error in add_to_cart: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
 
-@cart.route('/update/<int:item_id>', methods=['POST'])  # Updated route path
+@cart.route('/update/<int:item_id>', methods=['POST'])
 @login_required
 def update_cart(item_id):
     try:
@@ -110,7 +129,7 @@ def update_cart(item_id):
         logger.error(f"Error updating cart: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
 
-@cart.route('/remove/<int:item_id>', methods=['POST'])  # Updated route path
+@cart.route('/remove/<int:item_id>', methods=['POST'])
 @login_required
 def remove_from_cart(item_id):
     try:
