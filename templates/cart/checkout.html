@@ -77,8 +77,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const initErrorDisplay = document.getElementById('initialization-error');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     let elements = null;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
 
     function showError(message) {
         errorDisplay.textContent = message;
@@ -107,12 +105,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken || ''
-                }
+                    'X-CSRF-Token': csrfToken || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
@@ -141,8 +142,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             submitButton.disabled = false;
             
         } catch (error) {
-            console.error('Initialization error:', error);
+            console.error('Initialization error:', error.message);
             initErrorDisplay.classList.remove('d-none');
+            initErrorDisplay.textContent = error.message || 'Payment system initialization failed. Please try again later.';
             submitButton.disabled = true;
         } finally {
             setLoading(false);
@@ -175,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 throw error;
             }
         } catch (error) {
-            console.error('Payment error:', error);
+            console.error('Payment error:', error.message);
             showError(error.message || 'An error occurred during payment. Please try again.');
             setLoading(false);
         }

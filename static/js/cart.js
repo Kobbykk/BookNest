@@ -1,6 +1,6 @@
 // Cart functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Get CSRF token from meta tag
+    // Get CSRF token from meta tag at the start
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (!csrfToken) {
         console.error('CSRF token not found');
@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json().then(data => {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                });
             }
             return response.json();
         })
@@ -34,7 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error fetching cart count:', error);
+            console.error('Error fetching cart count:', error.message);
+            // Don't update badge on error
         });
     }
 
@@ -80,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to add book to cart', 'danger');
             })
             .finally(() => {
@@ -149,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to update cart', 'danger');
                 this.value = previousValue;
             });
@@ -200,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error:', error.message);
                 showToast('Error', error.message || 'Failed to remove item', 'danger');
             })
             .finally(() => {
