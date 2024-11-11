@@ -16,8 +16,8 @@ def index():
     # Get featured books for carousel
     featured_books = Book.query.filter_by(is_featured=True).limit(5).all()
     
-    # Get categories for the filter dropdown
-    categories = ['All Categories'] + [cat[0] for cat in Book.query.with_entities(Book.category).distinct() if cat[0]]
+    # Get categories for the filter dropdown using category_name
+    categories = ['All Categories'] + [cat[0] for cat in Book.query.with_entities(Book.category_name).distinct() if cat[0]]
     
     # Get filter parameters
     search_query = request.args.get('search', '')
@@ -41,9 +41,9 @@ def index():
             ))
         query = query.filter(or_(*conditions))
     
-    # Apply category filter
+    # Apply category filter using category_name
     if current_category and current_category != 'All Categories':
-        query = query.filter_by(category=current_category)
+        query = query.filter_by(category_name=current_category)
     
     # Apply price range filter
     if price_range:

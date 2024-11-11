@@ -44,12 +44,14 @@ class User(UserMixin, db.Model):
 class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
-    display_order = db.Column(db.Integer, default=0, nullable=False)
-    books = db.relationship('Book', backref='category', lazy=True)
-    parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
-    children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
+    display_order = db.Column(db.Integer, default=0)
+    books = db.relationship('Book', backref='category_ref', lazy=True)
+
+    @property
+    def book_count(self):
+        return Book.query.filter_by(category_id=self.id).count()
 
 class BookFormat(db.Model):
     __tablename__ = 'book_formats'
@@ -69,7 +71,8 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id', onupdate='CASCADE', ondelete='SET NULL'))
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
+    category_name = db.Column(db.String(100))  # Denormalized for performance
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True, cascade='all, delete-orphan')
     cart_items = db.relationship('CartItem', backref='book', lazy=True, cascade='all, delete-orphan')
@@ -87,15 +90,27 @@ class Book(db.Model):
     is_featured = db.Column(db.Boolean, default=False)
 
     @property
+    def category(self):
+        """Get category name, falling back to denormalized category_name if no category_ref"""
+        return self.category_ref.name if self.category_ref else self.category_name
+
+    @category.setter
+    def category(self, value):
+        """Set both category_ref (if exists) and denormalized category_name"""
+        category = Category.query.filter_by(name=value).first()
+        if category:
+            self.category_ref = category
+            self.category_id = category.id
+        self.category_name = value
+
+    @property
     def average_rating(self):
-        if not self.reviews:
-            return 0
         return db.session.query(func.avg(Review.rating)).filter(Review.book_id == self.id).scalar() or 0
 
     def get_similar_books(self, limit=5):
-        """Get similar books based on category and tags"""
+        """Get similar books based on category"""
         return Book.query.filter(
-            Book.category_id == self.category_id,
+            Book.category_name == self.category_name,
             Book.id != self.id
         ).limit(limit).all()
 
@@ -171,7 +186,7 @@ class CartItem(db.Model):
 
     @property
     def total(self):
-        return self.book.price * self.quantity
+        return self.book.price * self.quantity if self.book else 0
 
 class UserActivity(db.Model):
     __tablename__ = 'user_activities'
