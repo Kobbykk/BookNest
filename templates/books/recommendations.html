@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Your Book Recommendations</h2>
+    
+    <!-- Personal Recommendations -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">Recommended for You</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for book in recommended_books %}
+                <div class="col-md-3 mb-4">
+                    <div class="card h-100">
+                        <img src="{{ book.thumbnail_url }}" class="card-img-top" alt="{{ book.title }}">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ book.title }}</h5>
+                            <p class="card-text text-muted">by {{ book.author }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h5 mb-0">${{ "%.2f"|format(book.price) }}</span>
+                                <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-primary btn-sm">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Similar Users' Recommendations -->
+    <div class="card">
+        <div class="card-header">
+            <h4 class="mb-0">Readers Like You Also Enjoyed</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for user in similar_users %}
+                    <div class="col-12 mb-4">
+                        <h5>Reader {{ loop.index }}</h5>
+                        <div class="row">
+                            {% for book in user.reading_lists|map(attribute='items')|sum(start=[])|map(attribute='book')|list|slice(4) %}
+                            <div class="col-md-3 mb-3">
+                                <div class="card h-100">
+                                    <img src="{{ book.thumbnail_url }}" class="card-img-top" alt="{{ book.title }}">
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ book.title }}</h6>
+                                        <p class="card-text text-muted">by {{ book.author }}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h6 mb-0">${{ "%.2f"|format(book.price) }}</span>
+                                            <a href="{{ url_for('main.book_detail', book_id=book.id) }}" class="btn btn-primary btn-sm">View Details</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

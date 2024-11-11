@@ -5,6 +5,9 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from extensions import db
 from werkzeug.security import check_password_hash
 from utils.image_optimizer import ImageOptimizer
+from collections import Counter
+import numpy as np
+from sqlalchemy import and_
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -41,6 +44,120 @@ class User(UserMixin, db.Model):
 
     def can(self, permission):
         return permission in self.get_permissions() or self.is_admin
+
+    def get_reading_preferences(self):
+        """Get user's reading preferences based on ratings, purchases, and reading lists"""
+        preferences = {
+            'categories': Counter(),
+            'tags': Counter(),
+            'authors': Counter()
+        }
+        
+        # Add weights from reviews
+        for review in self.reviews:
+            if review.rating >= 4:  # Consider only positive reviews
+                preferences['categories'][review.book.category] += 2
+                if review.book.tags:
+                    for tag in review.book.tags.split(','):
+                        preferences['tags'][tag.strip()] += 2
+                preferences['authors'][review.book.author] += 2
+
+        # Add weights from purchases
+        for order in self.orders:
+            for item in order.items:
+                preferences['categories'][item.book.category] += 1
+                if item.book.tags:
+                    for tag in item.book.tags.split(','):
+                        preferences['tags'][tag.strip()] += 1
+                preferences['authors'][item.book.author] += 1
+
+        # Add weights from reading lists
+        for reading_list in self.reading_lists:
+            for item in reading_list.items:
+                preferences['categories'][item.book.category] += 0.5
+                if item.book.tags:
+                    for tag in item.book.tags.split(','):
+                        preferences['tags'][tag.strip()] += 0.5
+                preferences['authors'][item.book.author] += 0.5
+
+        return preferences
+
+    def get_recommended_books(self, limit=10):
+        """Get personalized book recommendations for the user"""
+        preferences = self.get_reading_preferences()
+        
+        # Get books the user has already interacted with
+        interacted_books = set()
+        for review in self.reviews:
+            interacted_books.add(review.book_id)
+        for order in self.orders:
+            for item in order.items:
+                interacted_books.add(item.book_id)
+
+        # Calculate recommendation scores for all other books
+        all_books = Book.query.filter(Book.id.notin_(interacted_books)).all()
+        book_scores = []
+
+        for book in all_books:
+            score = 0
+            
+            # Category match
+            if book.category in preferences['categories']:
+                score += preferences['categories'][book.category] * 2
+            
+            # Tag matches
+            if book.tags:
+                for tag in book.tags.split(','):
+                    tag = tag.strip()
+                    if tag in preferences['tags']:
+                        score += preferences['tags'][tag]
+            
+            # Author match
+            if book.author in preferences['authors']:
+                score += preferences['authors'][book.author] * 1.5
+            
+            # Rating factor
+            score *= (1 + book.average_rating / 5.0)
+            
+            book_scores.append((book, score))
+
+        # Sort by score and return top recommendations
+        book_scores.sort(key=lambda x: x[1], reverse=True)
+        return [book for book, _ in book_scores[:limit]]
+
+    def get_similar_users(self, limit=5):
+        """Find users with similar reading preferences"""
+        user_scores = {}
+        
+        # Get all users except self
+        other_users = User.query.filter(User.id != self.id).all()
+        
+        my_prefs = self.get_reading_preferences()
+        
+        for other_user in other_users:
+            score = 0
+            other_prefs = other_user.get_reading_preferences()
+            
+            # Compare category preferences
+            for category, weight in my_prefs['categories'].items():
+                if category in other_prefs['categories']:
+                    score += min(weight, other_prefs['categories'][category])
+            
+            # Compare tag preferences
+            for tag, weight in my_prefs['tags'].items():
+                if tag in other_prefs['tags']:
+                    score += min(weight, other_prefs['tags'][tag])
+            
+            # Compare author preferences
+            for author, weight in my_prefs['authors'].items():
+                if author in other_prefs['authors']:
+                    score += min(weight, other_prefs['authors'][author])
+            
+            user_scores[other_user] = score
+        
+        # Sort by score and return top similar users
+        similar_users = sorted(user_scores.items(), key=lambda x: x[1], reverse=True)
+        return [user for user, _ in similar_users[:limit]]
 
 class Category(db.Model):
     __tablename__ = 'categories'

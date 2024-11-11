@@ -92,6 +92,47 @@ def profile():
         flash('An error occurred while loading your profile.', 'danger')
         return redirect(url_for('main.index'))
 
+@main.route('/recommendations')
+@login_required
+def recommendations():
+    """Show personalized book recommendations"""
+    try:
+        # Get recommended books for the user
+        recommended_books = current_user.get_recommended_books(limit=8)
+        
+        # Get similar users and their recommendations
+        similar_users = current_user.get_similar_users(limit=3)
+        
+        return render_template('books/recommendations.html',
+                             recommended_books=recommended_books,
+                             similar_users=similar_users)
+    except Exception as e:
+        flash('An error occurred while loading recommendations.', 'danger')
+        return redirect(url_for('main.index'))
+
+@main.route('/api/recommendations')
+@login_required
+def api_recommendations():
+    """API endpoint for getting recommendations"""
+    try:
+        limit = request.args.get('limit', 5, type=int)
+        recommended_books = current_user.get_recommended_books(limit=limit)
+        
+        return jsonify({
+            'success': True,
+            'recommendations': [{
+                'id': book.id,
+                'title': book.title,
+                'author': book.author,
+                'price': float(book.price),
+                'image_url': book.thumbnail_url,
+                'category': book.category,
+                'rating': float(book.average_rating)
+            } for book in recommended_books]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
