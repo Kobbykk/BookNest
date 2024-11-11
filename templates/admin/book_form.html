@@ -62,48 +62,14 @@
                     {% endif %}
                 </div>
                 <div class="mb-3">
-                    {{ form.category.label(class="form-label") }}
-                    {{ form.category(class="form-select") }}
-                    {% if form.category.errors %}
-                        {% for error in form.category.errors %}
+                    {{ form.category_id.label(class="form-label") }}
+                    {{ form.category_id(class="form-select") }}
+                    {% if form.category_id.errors %}
+                        {% for error in form.category_id.errors %}
                             <div class="alert alert-danger">{{ error }}</div>
                         {% endfor %}
                     {% endif %}
                 </div>
-                <div class="mb-3">
-                    <div class="form-check">
-                        {{ form.is_featured(class="form-check-input") }}
-                        {{ form.is_featured.label(class="form-check-label") }}
-                    </div>
-                </div>
-
-                <!-- Book Formats -->
-                <h4>Book Formats</h4>
-                {% for format_form in form.formats %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                {{ format_form.format_type.label(class="form-label") }}
-                                {{ format_form.format_type(class="form-select") }}
-                            </div>
-                            <div class="col-md-3">
-                                {{ format_form.price.label(class="form-label") }}
-                                {{ format_form.price(class="form-control", type="number", step="0.01") }}
-                            </div>
-                            <div class="col-md-3">
-                                {{ format_form.stock.label(class="form-label") }}
-                                {{ format_form.stock(class="form-control", type="number") }}
-                            </div>
-                            <div class="col-md-3">
-                                {{ format_form.isbn.label(class="form-label") }}
-                                {{ format_form.isbn(class="form-control") }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-
                 <button type="submit" class="btn btn-primary">{{ 'Add' if not book else 'Update' }} Book</button>
                 <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
             </form>

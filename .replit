@@ -140,7 +140,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python3 reset_db.py && python3 seed_books.py"
+args = "python3 reset_db.py"
 
 [[workflows.workflow]]
 name = "Database Setup"
