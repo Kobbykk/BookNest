@@ -23,6 +23,9 @@ class User(UserMixin, db.Model):
 
     ROLES = ['admin', 'manager', 'editor', 'customer']
 
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
@@ -51,6 +54,9 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
 
+    def __init__(self, **kwargs):
+        super(Category, self).__init__(**kwargs)
+
 class BookFormat(db.Model):
     __tablename__ = 'book_formats'
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +65,9 @@ class BookFormat(db.Model):
     price = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
     isbn = db.Column(db.String(20))
+
+    def __init__(self, **kwargs):
+        super(BookFormat, self).__init__(**kwargs)
 
 class Book(db.Model):
     __tablename__ = 'books'
@@ -86,11 +95,15 @@ class Book(db.Model):
     formats = db.relationship('BookFormat', backref='book', lazy=True, cascade='all, delete-orphan')
     is_featured = db.Column(db.Boolean, default=False)
 
+    def __init__(self, **kwargs):
+        super(Book, self).__init__(**kwargs)
+
     @property
     def average_rating(self):
         if not self.reviews:
             return 0
-        return db.session.query(func.avg(Review.rating)).filter(Review.book_id == self.id).scalar() or 0
+        rating = db.session.query(func.avg(Review.rating)).filter(Review.book_id == self.id).scalar()
+        return rating if rating is not None else 0
 
     def get_similar_books(self, limit=5):
         """Get similar books based on category and tags"""
