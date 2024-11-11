@@ -9,6 +9,24 @@ from collections import Counter
 import numpy as np
 from sqlalchemy import and_
 
+class BookSeries(db.Model):
+    __tablename__ = 'book_series'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False, index=True)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    total_books = db.Column(db.Integer)
+    books = db.relationship('Book', backref=db.backref('series', lazy=True), lazy=True)
+    
+    def __init__(self, title=None, description=None, total_books=None):
+        self.title = title
+        self.description = description
+        self.total_books = total_books
+    
+    def get_ordered_books(self):
+        """Get books in series order"""
+        return Book.query.filter_by(series_id=self.id).order_by(Book.series_order).all()
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -54,7 +72,7 @@ class User(UserMixin, db.Model):
         }
         
         # Add weights from reviews
-        for review in self.reviews:
+        for review in self.reviews.all():
             if review.rating >= 4:  # Consider only positive reviews
                 preferences['categories'][review.book.category] += 2
                 if review.book.tags:
@@ -63,7 +81,7 @@ class User(UserMixin, db.Model):
                 preferences['authors'][review.book.author] += 2
 
         # Add weights from purchases
-        for order in self.orders:
+        for order in self.orders.all():
             for item in order.items:
                 preferences['categories'][item.book.category] += 1
                 if item.book.tags:
@@ -72,13 +90,13 @@ class User(UserMixin, db.Model):
                 preferences['authors'][item.book.author] += 1
 
         # Add weights from reading lists
-        for reading_list in self.reading_lists:
+        for reading_list in self.reading_lists.all():
             for item in reading_list.items:
-                preferences['categories'][item.book.category] += 0.5
+                preferences['categories'][item.book.category] += 1
                 if item.book.tags:
                     for tag in item.book.tags.split(','):
-                        preferences['tags'][tag.strip()] += 0.5
-                preferences['authors'][item.book.author] += 0.5
+                        preferences['tags'][tag.strip()] += 1
+                preferences['authors'][item.book.author] += 1
 
         return preferences
 
@@ -88,9 +106,9 @@ class User(UserMixin, db.Model):
         
         # Get books the user has already interacted with
         interacted_books = set()
-        for review in self.reviews:
+        for review in self.reviews.all():
             interacted_books.add(review.book_id)
-        for order in self.orders:
+        for order in self.orders.all():
             for item in order.items:
                 interacted_books.add(item.book_id)
 
@@ -204,6 +222,8 @@ class Book(db.Model):
     reading_list_items = db.relationship('ReadingListItem', backref='book', lazy=True, cascade='all, delete-orphan')
     formats = db.relationship('BookFormat', back_populates='book', lazy=True, cascade='all, delete-orphan')
     is_featured = db.Column(db.Boolean, default=False)
+    series_id = db.Column(db.Integer, db.ForeignKey('book_series.id', ondelete='SET NULL'))
+    series_order = db.Column(db.Integer)
 
     @property
     def thumbnail_url(self):
@@ -315,6 +335,7 @@ class CartItem(db.Model):
 
     @property
     def total(self):
+        """Calculate total price for cart item"""
         return self.book.price * self.quantity
 
 class Wishlist(db.Model):

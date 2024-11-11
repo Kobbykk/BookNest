@@ -4,120 +4,140 @@
 <div class="container">
     <h2>Admin Dashboard</h2>
     
-    <!-- Books Section -->
-    <div class="mb-5">
-        <h3>Books Management</h3>
-        <div class="mb-3">
-            <a href="{{ url_for('admin.add_book') }}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-2"></i>Add New Book
-            </a>
-        </div>
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" href="#books" data-bs-toggle="tab">Books</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#orders" data-bs-toggle="tab">Orders</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('admin.manage_series') }}">Book Series</a>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Books Section -->
+        <div class="tab-pane active" id="books">
+            <div class="mb-3">
+                <a href="{{ url_for('admin.add_book') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>Add New Book
+                </a>
+            </div>
 
-        <!-- Bulk Operations -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <h4>Bulk Operations</h4>
-                <form id="bulk-update-form" class="row g-3">
-                    <div class="col-md-3">
-                        <select class="form-select" id="bulk-action">
-                            <option value="price_adjust">Adjust Price (%)</option>
-                            <option value="stock_adjust">Adjust Stock (Units)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select" id="bulk-category">
-                            {% for category in categories %}
-                            <option value="{{ category.name }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <input type="number" class="form-control" id="bulk-value" placeholder="Value">
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-secondary">Apply</button>
-                    </div>
-                </form>
+            <!-- Bulk Operations -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4>Bulk Operations</h4>
+                    <form id="bulk-update-form" class="row g-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="bulk-action">
+                                <option value="price_adjust">Adjust Price (%)</option>
+                                <option value="stock_adjust">Adjust Stock (Units)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="bulk-category">
+                                {% for category in categories %}
+                                <option value="{{ category.name }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control" id="bulk-value" placeholder="Value">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-secondary">Apply</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Category</th>
+                            <th>Series</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for book in books %}
+                        <tr>
+                            <td>{{ book.title }}</td>
+                            <td>{{ book.author }}</td>
+                            <td>{{ book.category }}</td>
+                            <td>
+                                {% if book.series %}
+                                {{ book.series.title }} (#{{ book.series_order }})
+                                {% endif %}
+                            </td>
+                            <td>${{ "%.2f"|format(book.price) }}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm stock-input" 
+                                       data-book-id="{{ book.id }}" 
+                                       value="{{ book.stock }}" 
+                                       min="0" 
+                                       style="width: 80px">
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('admin.edit_book', book_id=book.id) }}" 
+                                       class="btn btn-sm btn-secondary">Edit</a>
+                                    <button class="btn btn-sm btn-danger delete-book" 
+                                            data-book-id="{{ book.id }}">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Author</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Stock</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for book in books %}
-                    <tr>
-                        <td>{{ book.title }}</td>
-                        <td>{{ book.author }}</td>
-                        <td>{{ book.category }}</td>
-                        <td>${{ "%.2f"|format(book.price) }}</td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm stock-input" 
-                                   data-book-id="{{ book.id }}" 
-                                   value="{{ book.stock }}" 
-                                   min="0" 
-                                   style="width: 80px">
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <a href="{{ url_for('admin.edit_book', book_id=book.id) }}" 
-                                   class="btn btn-sm btn-secondary">Edit</a>
-                                <button class="btn btn-sm btn-danger delete-book" 
-                                        data-book-id="{{ book.id }}">Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Orders Section -->
-    <div class="mb-5">
-        <h3>Orders Management</h3>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Order ID</th>
-                        <th>Customer</th>
-                        <th>Date</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in orders %}
-                    <tr>
-                        <td>#{{ order.id }}</td>
-                        <td>{{ order.user.email }}</td>
-                        <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td>${{ "%.2f"|format(order.total) }}</td>
-                        <td><span class="status-{{ order.status.lower() }}">{{ order.status }}</span></td>
-                        <td>
-                            <select class="form-select form-select-sm status-select" 
-                                    data-order-id="{{ order.id }}">
-                                <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
-                                <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>Processing</option>
-                                <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
-                                <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-                            </select>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Orders Section -->
+        <div class="tab-pane" id="orders">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>#{{ order.id }}</td>
+                            <td>{{ order.user.email }}</td>
+                            <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>${{ "%.2f"|format(order.total) }}</td>
+                            <td><span class="status-{{ order.status.lower() }}">{{ order.status }}</span></td>
+                            <td>
+                                <select class="form-select form-select-sm status-select" 
+                                        data-order-id="{{ order.id }}">
+                                    <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>Processing</option>
+                                    <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Completed</option>
+                                    <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

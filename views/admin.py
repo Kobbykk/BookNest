@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
-from models import User, Book, Order, Category, Review, UserActivity, BookFormat
+from models import User, Book, Order, Category, Review, UserActivity, BookFormat, BookSeries
 from forms import UserForm, CategoryForm, BookForm
 from extensions import db
 from utils.activity_logger import log_user_activity
@@ -241,6 +241,59 @@ def update_shipping_info(order_id):
         log_user_activity(current_user, 'shipping_update', 
                          f'Updated shipping info for order #{order.id}')
         
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/series')
+@permission_required('manage_books')
+def manage_series():
+    series_list = BookSeries.query.order_by(BookSeries.title).all()
+    return render_template('admin/manage_series.html', series_list=series_list)
+
+@admin.route('/series/add', methods=['POST'])
+@permission_required('manage_books')
+def add_series():
+    try:
+        data = request.get_json()
+        series = BookSeries(
+            title=data['title'],
+            total_books=int(data['total_books'])
+        )
+        db.session.add(series)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/series/edit/<int:series_id>', methods=['POST'])
+@permission_required('manage_books')
+def edit_series(series_id):
+    try:
+        data = request.get_json()
+        series = BookSeries.query.get_or_404(series_id)
+        series.title = data['title']
+        series.total_books = int(data['total_books'])
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin.route('/series/delete/<int:series_id>', methods=['POST'])
+@permission_required('manage_books')
+def delete_series(series_id):
+    try:
+        series = BookSeries.query.get_or_404(series_id)
+        if series.books:
+            return jsonify({
+                'success': False, 
+                'error': 'Cannot delete series with associated books'
+            })
+        db.session.delete(series)
+        db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()

@@ -3,7 +3,7 @@ import requests
 import time
 from datetime import datetime
 from flask import Flask
-from models import Book, Category, BookFormat
+from models import Book, Category, BookFormat, BookSeries
 from app import app, db
 import logging
 
@@ -100,6 +100,42 @@ def parse_date(date_str):
             continue
     return datetime.now()
 
+def get_series_info(work_details):
+    """Extract series information from work details"""
+    if 'series' in work_details:
+        # Handle both list and single series cases
+        series_data = work_details['series']
+        if isinstance(series_data, list) and series_data:
+            series_data = series_data[0]
+        elif isinstance(series_data, dict):
+            pass
+        else:
+            return None
+            
+        # Extract series information
+        series_title = series_data.get('title', '')
+        if not series_title:
+            return None
+            
+        # Get series number and total books
+        series_number = 1
+        total_books = 1
+        
+        if 'volume_number' in series_data:
+            series_number = int(series_data['volume_number'])
+        elif 'series_number' in series_data:
+            series_number = int(series_data['series_number'])
+            
+        if 'number_of_books' in series_data:
+            total_books = int(series_data['number_of_books'])
+        
+        return {
+            'title': series_title,
+            'total_books': total_books,
+            'series_order': series_number
+        }
+    return None
+
 def fetch_and_add_books():
     """Fetch books from Open Library API and add them to the database"""
     logger.info("Starting book fetch process...")
@@ -111,6 +147,9 @@ def fetch_and_add_books():
         logger.info("Fetching books from Open Library...")
         added_books = 0
         
+        # Track series to avoid duplicates
+        series_cache = {}
+        
         for subject in SUBJECTS:
             logger.info(f"Fetching books for subject: {subject}")
             url = f"https://openlibrary.org/subjects/{subject}.json?limit=20&published_in=2000-2024"
@@ -121,7 +160,7 @@ def fetch_and_add_books():
                 data = response.json()
                 
                 for work in data.get('works', []):
-                    if added_books >= 25:  # Add a few extra in case some fail
+                    if added_books >= 25:
                         break
                         
                     try:
@@ -160,6 +199,23 @@ def fetch_and_add_books():
                         # Get the first edition's publication date
                         pub_date = parse_date(editions[0].get('publish_date') if editions else None)
                         
+                        # Get series information
+                        series_info = get_series_info(work_details)
+                        series = None
+                        
+                        if series_info:
+                            series_title = series_info['title']
+                            if series_title in series_cache:
+                                series = series_cache[series_title]
+                            else:
+                                series = BookSeries(
+                                    title=series_title,
+                                    total_books=series_info['total_books']
+                                )
+                                db.session.add(series)
+                                db.session.flush()  # Get series ID
+                                series_cache[series_title] = series
+                        
                         # Create new book instance
                         book = Book()
                         book.title = work['title']
@@ -176,6 +232,11 @@ def fetch_and_add_books():
                         book.language = editions[0].get('languages', [{'key': '/languages/eng'}])[0]['key'].split('/')[-1] if editions and editions[0].get('languages') else 'eng'
                         book.tags = ','.join(work_details.get('subjects', [])[:5]) if 'subjects' in work_details else ''
                         book.is_featured = False
+                        
+                        # Add series information if available
+                        if series:
+                            book.series = series
+                            book.series_order = series_info['series_order']
                         
                         # Add book formats
                         for format_type, price_adj, stock, suffix in [
