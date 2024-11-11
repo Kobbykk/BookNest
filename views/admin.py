@@ -112,6 +112,26 @@ def add_book():
     
     return render_template('admin/book_form.html', form=form)
 
+@admin.route('/delete_book/<int:book_id>', methods=['POST'])
+@permission_required('manage_books')
+def delete_book(book_id):
+    try:
+        book = Book.query.get_or_404(book_id)
+        
+        # Delete associated formats
+        for format in book.formats:
+            db.session.delete(format)
+        
+        # Delete the book
+        db.session.delete(book)
+        db.session.commit()
+        
+        log_user_activity(current_user, 'book_deleted', f'Deleted book: {book.title}')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @admin.route('/books/edit/<int:book_id>', methods=['GET', 'POST'])
 @permission_required('manage_books')
 def edit_book(book_id):

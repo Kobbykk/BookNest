@@ -166,6 +166,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
     let bookToDelete = null;
 
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+    }
+
     // Handle stock updates
     document.querySelectorAll('.stock-input').forEach(input => {
         input.addEventListener('change', async function() {
@@ -177,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken || ''
                     },
                     body: JSON.stringify({
                         book_id: bookId,
@@ -215,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
                 },
                 body: JSON.stringify({ action, category, value })
             });
@@ -244,7 +252,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             const response = await fetch(`/admin/delete_book/${bookToDelete}`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken || ''
+                }
             });
             
             const data = await response.json();
@@ -271,6 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken || ''
                     },
                     body: JSON.stringify({ status: newStatus })
                 });
