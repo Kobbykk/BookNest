@@ -39,6 +39,16 @@ def add_book():
     form = BookForm()
     if form.validate_on_submit():
         try:
+            # Validate required fields
+            if not form.title.data or not form.author.data or not form.price.data:
+                flash('Please fill in all required fields.', 'danger')
+                return render_template('admin/book_form.html', form=form)
+
+            # Validate price
+            if form.price.data <= 0:
+                flash('Price must be greater than zero.', 'danger')
+                return render_template('admin/book_form.html', form=form)
+
             # Create new book
             book = Book(
                 title=form.title.data,
@@ -57,20 +67,30 @@ def add_book():
                 tags=form.tags.data
             )
 
-            # Handle series information
+            # Validate and handle series information
             if form.series_id.data:
-                book.series_id = form.series_id.data
+                series = BookSeries.query.get(form.series_id.data)
+                if not series:
+                    flash('Selected series does not exist.', 'danger')
+                    return render_template('admin/book_form.html', form=form)
+                book.series_id = series.id
                 book.series_order = form.series_order.data
 
-            # Add book formats with validation
+            # Validate and add book formats
             if form.formats.data:
                 for format_data in form.formats.data:
                     if not format_data.get('format_type') or not format_data.get('price'):
-                        continue
+                        flash('All book format fields are required.', 'danger')
+                        return render_template('admin/book_form.html', form=form)
+                    
+                    if float(format_data['price']) <= 0:
+                        flash('Format prices must be greater than zero.', 'danger')
+                        return render_template('admin/book_form.html', form=form)
+
                     format = BookFormat(
                         format_type=format_data['format_type'],
-                        price=format_data['price'],
-                        stock=format_data.get('stock', 0),
+                        price=float(format_data['price']),
+                        stock=int(format_data.get('stock', 0)),
                         isbn=format_data.get('isbn')
                     )
                     book.formats.append(format)
@@ -82,6 +102,14 @@ def add_book():
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding book: {str(e)}', 'danger')
+            return render_template('admin/book_form.html', form=form)
+    
+    # If form validation fails, show errors
+    if form.errors:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{field}: {error}', 'danger')
+    
     return render_template('admin/book_form.html', form=form)
 
 @admin.route('/books/edit/<int:book_id>', methods=['GET', 'POST'])

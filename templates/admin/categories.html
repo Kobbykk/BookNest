@@ -108,6 +108,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     const deleteModal = new bootstrap.Modal(document.getElementById('deleteCategoryModal'));
     let categoryToDelete = null;
+    
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     // Handle delete button clicks
     document.querySelectorAll('.delete-category').forEach(button => {
@@ -123,7 +126,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('confirmDelete').addEventListener('click', async function() {
         try {
             const response = await fetch(`/admin/categories/delete/${categoryToDelete}`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
             });
             
             const data = await response.json();
