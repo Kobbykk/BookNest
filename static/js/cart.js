@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', function() {
             credentials: 'same-origin'
         })
         .then(response => {
+            if (response.status === 401) {
+                // Don't redirect on cart count - just show 0
+                return { success: true, count: 0 };
+            }
             if (!response.ok) {
                 return response.json().then(data => {
                     throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -41,6 +45,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Handle authentication redirects
+    function handleAuthResponse(response) {
+        if (response.status === 401) {
+            return response.json().then(data => {
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                }
+                return null;
+            });
+        }
+        return response;
+    }
+
     // Add to cart functionality
     document.querySelectorAll('.add-to-cart').forEach(button => {
         button.addEventListener('click', function(event) {
@@ -60,11 +79,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({ book_id: bookId })
             })
+            .then(handleAuthResponse)
             .then(response => {
-                if (response.status === 401) {
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                    return null;
-                }
+                if (!response) return null;
                 if (!response.ok) {
                     return response.json().then(data => {
                         throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -120,11 +137,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({ quantity: newQuantity })
             })
+            .then(handleAuthResponse)
             .then(response => {
-                if (response.status === 401) {
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                    return null;
-                }
+                if (!response) return null;
                 if (!response.ok) {
                     return response.json().then(data => {
                         throw new Error(data.error || `HTTP error! status: ${response.status}`);
@@ -174,11 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 credentials: 'same-origin'
             })
+            .then(handleAuthResponse)
             .then(response => {
-                if (response.status === 401) {
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                    return null;
-                }
+                if (!response) return null;
                 if (!response.ok) {
                     return response.json().then(data => {
                         throw new Error(data.error || `HTTP error! status: ${response.status}`);

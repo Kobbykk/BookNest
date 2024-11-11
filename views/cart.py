@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, session
 from flask_login import login_required, current_user
 from models import CartItem, Book, Order, OrderItem, db
 from utils.activity_logger import log_user_activity
@@ -10,8 +10,17 @@ import logging
 logger = logging.getLogger(__name__)
 cart = Blueprint('cart', __name__, url_prefix='/cart')
 
+@cart.before_request
+def require_login():
+    """Ensure all cart routes require authentication"""
+    if not current_user.is_authenticated:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Authentication required', 'redirect': url_for('auth.login')}), 401
+        # Store the full path (including query parameters) in session for post-login redirect
+        session['next'] = request.full_path
+        return redirect(url_for('auth.login'))
+
 @cart.route('/')
-@login_required
 def view_cart():
     try:
         cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
@@ -24,7 +33,6 @@ def view_cart():
         return redirect(url_for('main.index'))
 
 @cart.route('/checkout')
-@login_required
 def checkout():
     try:
         cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
@@ -48,7 +56,6 @@ def checkout():
         return redirect(url_for('main.index'))
 
 @cart.route('/create-payment-intent', methods=['POST'])
-@login_required
 def create_payment_intent():
     try:
         if not request.is_json:
@@ -89,7 +96,6 @@ def create_payment_intent():
         return jsonify({'success': False, 'error': 'Failed to initialize payment'}), 500
 
 @cart.route('/payment-complete')
-@login_required
 def payment_complete():
     try:
         payment_intent_id = request.args.get('payment_intent')
@@ -170,7 +176,6 @@ def get_cart_count():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @cart.route('/add', methods=['POST'])
-@login_required
 def add_to_cart():
     try:
         if not request.is_json:
@@ -207,7 +212,6 @@ def add_to_cart():
         return jsonify({'success': False, 'error': 'Failed to add item to cart'}), 500
 
 @cart.route('/update/<int:item_id>', methods=['POST'])
-@login_required
 def update_cart(item_id):
     try:
         if not request.is_json:
@@ -250,7 +254,6 @@ def update_cart(item_id):
         return jsonify({'success': False, 'error': 'Failed to update cart'}), 500
 
 @cart.route('/remove/<int:item_id>', methods=['POST'])
-@login_required
 def remove_from_cart(item_id):
     try:
         cart_item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first_or_404()
