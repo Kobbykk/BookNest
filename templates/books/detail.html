@@ -296,7 +296,6 @@
     </div>
 </div>
 {% endif %}
-{% endblock %}
 
 {% block styles %}
 <style>
@@ -327,13 +326,6 @@
 .rating-input label {
     cursor: pointer;
     width: 40px;
-    margin: 0 2px;
-}
-
-.rating-input label:hover,
-.rating-input label:hover ~ label,
-.rating-input input:checked ~ label {
-    color: #ffc107;
 }
 
 .list-group-item.active {
@@ -349,90 +341,4 @@
 </style>
 {% endblock %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Social sharing
-    document.querySelectorAll('.share-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const platform = this.dataset.platform;
-            const url = encodeURIComponent(window.location.href);
-            const title = encodeURIComponent('Check out this book: {{ book.title }}');
-            
-            let shareUrl;
-            switch(platform) {
-                case 'twitter':
-                    shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${title}`;
-                    break;
-                case 'facebook':
-                    shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
-                    break;
-                case 'email':
-                    shareUrl = `mailto:?subject=${title}&body=${url}`;
-                    break;
-            }
-            
-            if (shareUrl) {
-                window.open(shareUrl, '_blank');
-            }
-        });
-    });
-    
-    // Helpful votes
-    document.querySelectorAll('.helpful-vote').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const reviewId = this.dataset.reviewId;
-            try {
-                const response = await fetch(`/review/${reviewId}/vote`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to vote');
-                }
-                
-                const data = await response.json();
-                if (data.success) {
-                    const count = parseInt(this.dataset.helpfulCount) + 1;
-                    this.dataset.helpfulCount = count;
-                    this.innerHTML = `<i class="bi bi-hand-thumbs-up"></i> Helpful (${count})`;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        });
-    });
-    
-    // Toggle wishlist
-    document.querySelector('.toggle-wishlist')?.addEventListener('click', async function() {
-        const bookId = this.dataset.bookId;
-        try {
-            const response = await fetch(`/wishlist/toggle/${bookId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to toggle wishlist');
-            }
-            
-            const data = await response.json();
-            const icon = this.querySelector('i');
-            if (data.added) {
-                icon.classList.remove('bi-heart');
-                icon.classList.add('bi-heart-fill');
-            } else {
-                icon.classList.remove('bi-heart-fill');
-                icon.classList.add('bi-heart');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    });
-});
-</script>
-{% endblock %}
+{% endblock content %}
