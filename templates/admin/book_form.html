@@ -5,44 +5,175 @@
     <h2>{{ 'Add' if not book else 'Edit' }} Book</h2>
     <div class="card">
         <div class="card-body">
-            <form method="POST" action="{{ url_for('admin.add_book') if not book else url_for('admin.edit_book', book_id=book.id) }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('admin.add_book') if not book else url_for('admin.edit_book', book_id=book.id) }}">
                 {{ form.csrf_token }}
-                <div class="mb-3">
-                    {{ form.title.label(class="form-label") }}
-                    {{ form.title(class="form-control") }}
-                    {% if form.title.errors %}
-                        {% for error in form.title.errors %}
-                            <div class="alert alert-danger">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
+                
+                <!-- Basic Information -->
+                <h4 class="mb-3">Basic Information</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.title.label(class="form-label") }}
+                            {{ form.title(class="form-control") }}
+                            {% if form.title.errors %}
+                                {% for error in form.title.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.author.label(class="form-label") }}
+                            {{ form.author(class="form-control") }}
+                            {% if form.author.errors %}
+                                {% for error in form.author.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    {{ form.author.label(class="form-label") }}
-                    {{ form.author(class="form-control") }}
-                    {% if form.author.errors %}
-                        {% for error in form.author.errors %}
-                            <div class="alert alert-danger">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
+
+                <!-- Pricing and Stock -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.price.label(class="form-label") }}
+                            {{ form.price(class="form-control", type="number", step="0.01", min="0.01") }}
+                            {% if form.price.errors %}
+                                {% for error in form.price.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.stock.label(class="form-label") }}
+                            {{ form.stock(class="form-control", type="number", min="0") }}
+                            {% if form.stock.errors %}
+                                {% for error in form.stock.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.category_id.label(class="form-label") }}
+                            {{ form.category_id(class="form-select") }}
+                            {% if form.category_id.errors %}
+                                {% for error in form.category_id.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    {{ form.price.label(class="form-label") }}
-                    {{ form.price(class="form-control", type="number", step="0.01") }}
-                    {% if form.price.errors %}
-                        {% for error in form.price.errors %}
-                            <div class="alert alert-danger">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
+
+                <!-- Book Details -->
+                <h4 class="mb-3 mt-4">Book Details</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.isbn.label(class="form-label") }}
+                            {{ form.isbn(class="form-control") }}
+                            {% if form.isbn.errors %}
+                                {% for error in form.isbn.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.publisher.label(class="form-label") }}
+                            {{ form.publisher(class="form-control") }}
+                            {% if form.publisher.errors %}
+                                {% for error in form.publisher.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.publication_date.label(class="form-label") }}
+                            {{ form.publication_date(class="form-control", type="date") }}
+                            {% if form.publication_date.errors %}
+                                {% for error in form.publication_date.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.page_count.label(class="form-label") }}
+                            {{ form.page_count(class="form-control", type="number", min="1") }}
+                            {% if form.page_count.errors %}
+                                {% for error in form.page_count.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.language.label(class="form-label") }}
+                            {{ form.language(class="form-control") }}
+                            {% if form.language.errors %}
+                                {% for error in form.language.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Series Information -->
+                <h4 class="mb-3 mt-4">Series Information</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.series_id.label(class="form-label") }}
+                            {{ form.series_id(class="form-select") }}
+                            {% if form.series_id.errors %}
+                                {% for error in form.series_id.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.series_order.label(class="form-label") }}
+                            {{ form.series_order(class="form-control", type="number", min="1") }}
+                            {% if form.series_order.errors %}
+                                {% for error in form.series_order.errors %}
+                                    <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description and Additional Info -->
+                <h4 class="mb-3 mt-4">Additional Information</h4>
                 <div class="mb-3">
                     {{ form.description.label(class="form-label") }}
-                    {{ form.description(class="form-control", rows="3") }}
+                    {{ form.description(class="form-control", rows="4") }}
                     {% if form.description.errors %}
                         {% for error in form.description.errors %}
                             <div class="alert alert-danger">{{ error }}</div>
                         {% endfor %}
                     {% endif %}
                 </div>
+
                 <div class="mb-3">
                     {{ form.image_url.label(class="form-label") }}
                     {{ form.image_url(class="form-control") }}
@@ -52,28 +183,84 @@
                         {% endfor %}
                     {% endif %}
                 </div>
+
                 <div class="mb-3">
-                    {{ form.stock.label(class="form-label") }}
-                    {{ form.stock(class="form-control", type="number") }}
-                    {% if form.stock.errors %}
-                        {% for error in form.stock.errors %}
+                    {{ form.tags.label(class="form-label") }}
+                    {{ form.tags(class="form-control") }}
+                    <small class="form-text text-muted">Enter tags separated by commas</small>
+                    {% if form.tags.errors %}
+                        {% for error in form.tags.errors %}
                             <div class="alert alert-danger">{{ error }}</div>
                         {% endfor %}
                     {% endif %}
                 </div>
-                <div class="mb-3">
-                    {{ form.category_id.label(class="form-label") }}
-                    {{ form.category_id(class="form-select") }}
-                    {% if form.category_id.errors %}
-                        {% for error in form.category_id.errors %}
-                            <div class="alert alert-danger">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
+
+                <!-- Book Formats -->
+                <h4 class="mb-3 mt-4">Book Formats</h4>
+                <div id="formats-container">
+                    {% for format_form in form.formats %}
+                    <div class="card mb-3 format-entry">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    {{ format_form.format_type.label(class="form-label") }}
+                                    {{ format_form.format_type(class="form-select") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ format_form.price.label(class="form-label") }}
+                                    {{ format_form.price(class="form-control", type="number", step="0.01", min="0.01") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ format_form.stock.label(class="form-label") }}
+                                    {{ format_form.stock(class="form-control", type="number", min="0") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ format_form.isbn.label(class="form-label") }}
+                                    {{ format_form.isbn(class="form-control") }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                <button type="submit" class="btn btn-primary">{{ 'Add' if not book else 'Update' }} Book</button>
-                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
+                <button type="button" class="btn btn-secondary mb-3" id="add-format">Add Another Format</button>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.is_featured(class="form-check-input") }}
+                        {{ form.is_featured.label(class="form-check-label") }}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">{{ 'Add' if not book else 'Update' }} Book</button>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
+                </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatsContainer = document.getElementById('formats-container');
+    const addFormatBtn = document.getElementById('add-format');
+    let formatCount = {{ form.formats|length }};
+
+    addFormatBtn.addEventListener('click', function() {
+        const formatTemplate = formatsContainer.children[0].cloneNode(true);
+        const inputs = formatTemplate.querySelectorAll('input, select');
+        
+        inputs.forEach(input => {
+            const oldName = input.name;
+            const newName = oldName.replace('0', formatCount);
+            input.name = newName;
+            input.value = '';
+        });
+        
+        formatsContainer.appendChild(formatTemplate);
+        formatCount++;
+    });
+});
+</script>
 {% endblock %}
