@@ -20,3 +20,4 @@ email-validator
 requests
 pillow
 beautifulsoup4
+trafilatura
