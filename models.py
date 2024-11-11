@@ -46,8 +46,8 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     description = db.Column(db.Text)
-    display_order = db.Column(db.Integer, default=0)
-    books = db.relationship('Book', backref='category_ref', lazy=True)
+    display_order = db.Column(db.Integer, default=0, nullable=False)
+    books = db.relationship('Book', backref='category', lazy=True)
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
 
@@ -69,7 +69,7 @@ class Book(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     stock = db.Column(db.Integer, default=0)
-    category = db.Column(db.String(50), db.ForeignKey('categories.name', onupdate='CASCADE', ondelete='SET NULL'))
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id', onupdate='CASCADE', ondelete='SET NULL'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviews = db.relationship('Review', backref='book', lazy=True, cascade='all, delete-orphan')
     cart_items = db.relationship('CartItem', backref='book', lazy=True, cascade='all, delete-orphan')
@@ -95,14 +95,14 @@ class Book(db.Model):
     def get_similar_books(self, limit=5):
         """Get similar books based on category and tags"""
         return Book.query.filter(
-            Book.category == self.category,
+            Book.category_id == self.category_id,
             Book.id != self.id
         ).limit(limit).all()
 
     def get_frequently_bought_together(self, limit=3):
         """Get books frequently bought together"""
         query = text("""
-            SELECT b.id, COUNT(*) as purchase_count
+            SELECT DISTINCT b.id, COUNT(*) as purchase_count
             FROM books b
             JOIN order_items oi1 ON b.id = oi1.book_id
             JOIN orders o1 ON oi1.order_id = o1.id
