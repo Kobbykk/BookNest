@@ -19,3 +19,4 @@ python-dotenv
 email-validator
 requests
 pillow
+beautifulsoup4
