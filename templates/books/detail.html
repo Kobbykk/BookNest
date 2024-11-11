@@ -11,7 +11,8 @@
                         <!-- Book Image with Zoom -->
                         <div class="col-md-4">
                             <div class="book-image-container position-relative">
-                                <img src="{{ book.image_url }}" alt="{{ book.title }}" 
+                                <img src="{{ book.medium_image_url }}" 
+                                     alt="{{ book.title }}" 
                                      class="img-fluid rounded book-image mb-3" 
                                      data-bs-toggle="modal" 
                                      data-bs-target="#imageZoomModal">
@@ -237,7 +238,7 @@
             <div class="modal-body p-0">
                 <button type="button" class="btn-close position-absolute top-0 end-0 m-2" 
                         data-bs-dismiss="modal" aria-label="Close"></button>
-                <img src="{{ book.image_url }}" alt="{{ book.title }}" class="img-fluid w-100">
+                <img src="{{ book.large_image_url }}" alt="{{ book.title }}" class="img-fluid w-100">
             </div>
         </div>
     </div>

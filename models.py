@@ -4,6 +4,7 @@ from sqlalchemy import func, text
 from sqlalchemy.ext.hybrid import hybrid_property
 from extensions import db
 from werkzeug.security import check_password_hash
+from utils.image_optimizer import ImageOptimizer
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -22,9 +23,6 @@ class User(UserMixin, db.Model):
     reading_lists = db.relationship('ReadingList', backref='user', lazy=True, cascade='all, delete-orphan')
 
     ROLES = ['admin', 'manager', 'editor', 'customer']
-
-    def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -54,9 +52,6 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     children = db.relationship('Category', backref=db.backref('parent', remote_side=[id]))
 
-    def __init__(self, **kwargs):
-        super(Category, self).__init__(**kwargs)
-
 class BookFormat(db.Model):
     __tablename__ = 'book_formats'
     id = db.Column(db.Integer, primary_key=True)
@@ -65,9 +60,7 @@ class BookFormat(db.Model):
     price = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
     isbn = db.Column(db.String(20))
-
-    def __init__(self, **kwargs):
-        super(BookFormat, self).__init__(**kwargs)
+    book = db.relationship('Book', back_populates='formats')
 
 class Book(db.Model):
     __tablename__ = 'books'
@@ -92,11 +85,23 @@ class Book(db.Model):
     tags = db.Column(db.String(500))
     wishlisted_by = db.relationship('Wishlist', backref='book', lazy=True, cascade='all, delete-orphan')
     reading_list_items = db.relationship('ReadingListItem', backref='book', lazy=True, cascade='all, delete-orphan')
-    formats = db.relationship('BookFormat', backref='book', lazy=True, cascade='all, delete-orphan')
+    formats = db.relationship('BookFormat', back_populates='book', lazy=True, cascade='all, delete-orphan')
     is_featured = db.Column(db.Boolean, default=False)
 
-    def __init__(self, **kwargs):
-        super(Book, self).__init__(**kwargs)
+    @property
+    def thumbnail_url(self):
+        """Get thumbnail version of book cover"""
+        return ImageOptimizer.get_optimized_url(self.image_url, 'thumbnail')
+        
+    @property
+    def medium_image_url(self):
+        """Get medium version of book cover"""
+        return ImageOptimizer.get_optimized_url(self.image_url, 'medium')
+        
+    @property
+    def large_image_url(self):
+        """Get large version of book cover"""
+        return ImageOptimizer.get_optimized_url(self.image_url, 'large')
 
     @property
     def average_rating(self):
@@ -130,6 +135,34 @@ class Book(db.Model):
         book_ids = [row[0] for row in result]
         return Book.query.filter(Book.id.in_(book_ids)).all()
 
+class Review(db.Model):
+    __tablename__ = 'reviews'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    helpful_votes = db.Column(db.Integer, default=0)
+    verified_purchase = db.Column(db.Boolean, default=False)
+
+    @hybrid_property
+    def user_badge(self):
+        if self.verified_purchase and self.helpful_votes >= 10:
+            return 'expert'
+        elif self.verified_purchase:
+            return 'verified'
+        return 'reviewer'
+
+class UserActivity(db.Model):
+    __tablename__ = 'user_activities'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    activity_type = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.String(255))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    ip_address = db.Column(db.String(45))
+
 class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)
@@ -155,25 +188,6 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
-class Review(db.Model):
-    __tablename__ = 'reviews'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)
-    comment = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    helpful_votes = db.Column(db.Integer, default=0)
-    verified_purchase = db.Column(db.Boolean, default=False)
-
-    @hybrid_property
-    def user_badge(self):
-        if self.verified_purchase and self.helpful_votes >= 10:
-            return 'expert'
-        elif self.verified_purchase:
-            return 'verified'
-        return 'reviewer'
-
 class CartItem(db.Model):
     __tablename__ = 'cart_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -185,15 +199,6 @@ class CartItem(db.Model):
     @property
     def total(self):
         return self.book.price * self.quantity
-
-class UserActivity(db.Model):
-    __tablename__ = 'user_activities'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    activity_type = db.Column(db.String(50), nullable=False)
-    description = db.Column(db.String(255))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    ip_address = db.Column(db.String(45))
 
 class Wishlist(db.Model):
     __tablename__ = 'wishlists'
