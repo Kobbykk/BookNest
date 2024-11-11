@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle delete confirmation
     document.getElementById('confirmDelete').addEventListener('click', async function() {
         try {
-            const response = await fetch(`/admin/delete_category/${categoryToDelete}`, {
+            const response = await fetch(`/admin/categories/delete/${categoryToDelete}`, {
                 method: 'POST'
             });
             

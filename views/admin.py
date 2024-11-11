@@ -38,30 +38,50 @@ def dashboard():
 def add_book():
     form = BookForm()
     if form.validate_on_submit():
-        book = Book(
-            title=form.title.data,
-            author=form.author.data,
-            price=form.price.data,
-            description=form.description.data,
-            image_url=form.image_url.data,
-            stock=form.stock.data,
-            category=form.category_id.data,
-            is_featured=form.is_featured.data
-        )
-        # Add book formats
-        for format_form in form.formats:
-            format = BookFormat(
-                format_type=format_form.format_type.data,
-                price=format_form.price.data,
-                stock=format_form.stock.data,
-                isbn=format_form.isbn.data
+        try:
+            # Create new book
+            book = Book(
+                title=form.title.data,
+                author=form.author.data,
+                price=form.price.data,
+                description=form.description.data,
+                image_url=form.image_url.data,
+                stock=form.stock.data,
+                category=form.category_id.data,
+                is_featured=form.is_featured.data,
+                isbn=form.isbn.data,
+                publisher=form.publisher.data,
+                publication_date=form.publication_date.data,
+                page_count=form.page_count.data,
+                language=form.language.data,
+                tags=form.tags.data
             )
-            book.formats.append(format)
-            
-        db.session.add(book)
-        db.session.commit()
-        flash('Book added successfully!', 'success')
-        return redirect(url_for('admin.dashboard'))
+
+            # Handle series information
+            if form.series_id.data:
+                book.series_id = form.series_id.data
+                book.series_order = form.series_order.data
+
+            # Add book formats with validation
+            if form.formats.data:
+                for format_data in form.formats.data:
+                    if not format_data.get('format_type') or not format_data.get('price'):
+                        continue
+                    format = BookFormat(
+                        format_type=format_data['format_type'],
+                        price=format_data['price'],
+                        stock=format_data.get('stock', 0),
+                        isbn=format_data.get('isbn')
+                    )
+                    book.formats.append(format)
+
+            db.session.add(book)
+            db.session.commit()
+            flash('Book added successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding book: {str(e)}', 'danger')
     return render_template('admin/book_form.html', form=form)
 
 @admin.route('/books/edit/<int:book_id>', methods=['GET', 'POST'])
@@ -71,29 +91,45 @@ def edit_book(book_id):
     form = BookForm(obj=book)
     
     if form.validate_on_submit():
-        book.title = form.title.data
-        book.author = form.author.data
-        book.price = form.price.data
-        book.description = form.description.data
-        book.image_url = form.image_url.data
-        book.stock = form.stock.data
-        book.category = form.category_id.data
-        book.is_featured = form.is_featured.data
-        
-        # Update book formats
-        book.formats = []
-        for format_form in form.formats:
-            format = BookFormat(
-                format_type=format_form.format_type.data,
-                price=format_form.price.data,
-                stock=format_form.stock.data,
-                isbn=format_form.isbn.data
-            )
-            book.formats.append(format)
-        
-        db.session.commit()
-        flash('Book updated successfully!', 'success')
-        return redirect(url_for('admin.dashboard'))
+        try:
+            book.title = form.title.data
+            book.author = form.author.data
+            book.price = form.price.data
+            book.description = form.description.data
+            book.image_url = form.image_url.data
+            book.stock = form.stock.data
+            book.category = form.category_id.data
+            book.is_featured = form.is_featured.data
+            book.isbn = form.isbn.data
+            book.publisher = form.publisher.data
+            book.publication_date = form.publication_date.data
+            book.page_count = form.page_count.data
+            book.language = form.language.data
+            book.tags = form.tags.data
+            
+            # Update series information
+            book.series_id = form.series_id.data
+            book.series_order = form.series_order.data if form.series_id.data else None
+            
+            # Update formats
+            book.formats = []
+            for format_data in form.formats.data:
+                if not format_data.get('format_type') or not format_data.get('price'):
+                    continue
+                format = BookFormat(
+                    format_type=format_data['format_type'],
+                    price=format_data['price'],
+                    stock=format_data.get('stock', 0),
+                    isbn=format_data.get('isbn')
+                )
+                book.formats.append(format)
+            
+            db.session.commit()
+            flash('Book updated successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating book: {str(e)}', 'danger')
         
     return render_template('admin/book_form.html', form=form, book=book)
 
@@ -201,12 +237,16 @@ def edit_category(category_id):
 @admin.route('/categories/delete/<int:category_id>', methods=['POST'])
 @permission_required('manage_categories')
 def delete_category(category_id):
-    category = Category.query.get_or_404(category_id)
-    if category.books:
-        return jsonify({'success': False, 'error': 'Cannot delete category with books'})
-    db.session.delete(category)
-    db.session.commit()
-    return jsonify({'success': True})
+    try:
+        category = Category.query.get_or_404(category_id)
+        if category.books:
+            return jsonify({'success': False, 'error': 'Cannot delete category with books'})
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 @admin.route('/update_order_status/<int:order_id>', methods=['POST'])
 @permission_required('manage_orders')
